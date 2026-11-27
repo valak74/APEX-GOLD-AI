@@ -9,9 +9,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import apex
 from apex.api.deps import ReAuth, SessionDep, StateDep, require_role, verify_reauth
+from apex.api.state import AppState
 from apex.core.fx import FxConverter
 from apex.db.audit import append_audit
 from apex.db.models import BarRow, RiskConfigVersion, User
@@ -297,7 +299,13 @@ async def market_bars(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, f"timeframe must be one of {ALL_TIMEFRAMES}"
         )
-    limit = max(1, min(limit, 2000))
+    return await collect_bars(state, session, timeframe, max(1, min(limit, 2000)), symbol)
+
+
+async def collect_bars(
+    state: AppState, session: AsyncSession, timeframe: str, limit: int, symbol: str = "XAUUSD"
+) -> list[BarOut]:
+    """Shared by the bars endpoint and the analysis engine (same merge rules everywhere)."""
     rows = (
         (
             await session.execute(

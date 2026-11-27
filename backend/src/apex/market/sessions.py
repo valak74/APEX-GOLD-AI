@@ -4,8 +4,9 @@ Spot gold (XAU/USD) trades ~24/5 in New York-time terms:
 * weekly open  : Sunday 18:00 America/New_York
 * daily break  : 17:00–18:00 America/New_York (rollover; spreads widen, broker quotes may stop)
 * weekly close : Friday 17:00 America/New_York
-The *trading day* runs 18:00 NY → 17:00 NY next day and is labelled by the calendar date of its close
-(standard FX/metals convention). Daily and weekly bars use these boundaries; intraday bars are plain
+The *trading day* starts at the 17:00 NY rollover (the market reopens at 18:00) and ends at the next 17:00
+(standard FX/metals convention), so the daily break belongs to the new day and every timestamp is ≥ the start
+of its trading day. Daily and weekly bars use these boundaries; intraday bars are plain
 UTC-aligned buckets. All inputs/outputs are timezone-aware UTC. DST is handled by zoneinfo.
 
 Broker holidays are not modelled here (reported by brokers per symbol; to be added from cTrader schedules).
@@ -52,10 +53,10 @@ def is_market_open(ts: datetime) -> bool:
 
 
 def trading_day_start(ts: datetime) -> datetime:
-    """Start (18:00 NY, as UTC) of the trading day containing ``ts``; break minutes belong to the next day."""
+    """Start (17:00 NY rollover, as UTC) of the trading day containing ``ts`` — always ≤ ``ts``."""
     ny = _check(ts).astimezone(NY)
     day = ny.date() if ny.time() >= ROLLOVER else ny.date() - timedelta(days=1)
-    return datetime.combine(day, REOPEN, tzinfo=NY).astimezone(UTC)
+    return datetime.combine(day, ROLLOVER, tzinfo=NY).astimezone(UTC)
 
 
 def bucket_start(ts: datetime, timeframe: str) -> datetime:
@@ -68,7 +69,7 @@ def bucket_start(ts: datetime, timeframe: str) -> datetime:
         return trading_day_start(ts)
     if timeframe == "1w":
         start = trading_day_start(ts).astimezone(NY)
-        # trading weeks start on Sunday 18:00 NY
+        # trading weeks start at the Sunday 17:00 NY rollover (market reopens 18:00)
         days_back = (start.weekday() + 1) % 7  # Sunday -> 0
-        return datetime.combine(start.date() - timedelta(days=days_back), REOPEN, tzinfo=NY).astimezone(UTC)
+        return datetime.combine(start.date() - timedelta(days=days_back), ROLLOVER, tzinfo=NY).astimezone(UTC)
     raise ValueError(f"unknown timeframe {timeframe!r}")

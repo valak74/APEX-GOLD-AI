@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 import apex
-from apex.api.routes import auth, brokers, system
+from apex.api.routes import analysis, auth, brokers, system
 from apex.api.state import AppState, RateLimiter
 from apex.broker.factory import build_broker
 from apex.core.config import Settings, get_settings
@@ -79,4 +79,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system.router)
     app.include_router(auth.router)
     app.include_router(brokers.router)
+    app.include_router(analysis.router)
     return app

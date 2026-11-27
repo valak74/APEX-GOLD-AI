@@ -64,6 +64,33 @@ async def import_dukascopy(symbol: str, start_s: str, end_s: str, force: bool) -
         await engine.dispose()
 
 
+async def calendar_import(path: str, source: str) -> int:
+    import json
+
+    from pydantic import TypeAdapter, ValidationError
+
+    from apex.intel.calendar import EventIn, import_events
+
+    try:
+        from pathlib import Path
+
+        raw = await asyncio.to_thread(Path(path).read_text, encoding="utf-8")
+        events = TypeAdapter(list[EventIn]).validate_python(json.loads(raw))
+    except (OSError, json.JSONDecodeError, ValidationError) as e:
+        print(f"fichier invalide : {e}")
+        return 1
+    engine = make_engine(get_settings().database_url)
+    try:
+        async with make_sessionmaker(engine)() as session:
+            n = await import_events(session, events, source)
+            await append_audit(session, "cli", "calendar_imported", details={"source": source, "events": n})
+            await session.commit()
+    finally:
+        await engine.dispose()
+    print(f"{n} événements importés")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="apex")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -89,6 +116,9 @@ def main(argv: list[str] | None = None) -> None:
     imp.add_argument("--from", dest="start", required=True, help="YYYY-MM-DD (UTC)")
     imp.add_argument("--to", dest="end", required=True, help="YYYY-MM-DD (UTC, exclusive)")
     imp.add_argument("--force", action="store_true", help="re-download hours already present")
+    cal = sub.add_parser("calendar-import", help="import economic events from a JSON file")
+    cal.add_argument("file")
+    cal.add_argument("--source", default="manual")
     srv = sub.add_parser("serve", help="run the API")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -114,6 +144,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(asyncio.run(check(a.account, a.seconds)))
     elif a.cmd == "import-dukascopy":
         sys.exit(asyncio.run(import_dukascopy(a.symbol, a.start, a.end, a.force)))
+    elif a.cmd == "calendar-import":
+        sys.exit(asyncio.run(calendar_import(a.file, a.source)))
     elif a.cmd == "serve":
         import uvicorn
 

@@ -139,3 +139,23 @@ class BarRow(Base):
     spread_avg: Mapped[Decimal] = mapped_column(Numeric(12, 6))
     spread_max: Mapped[Decimal] = mapped_column(Numeric(12, 6))
     tick_count: Mapped[int] = mapped_column(Integer)
+
+
+class EconomicEvent(Base):
+    """Scheduled macro events. ``importance`` drives trading lockouts (see apex.intel.calendar)."""
+
+    __tablename__ = "economic_events"
+    __table_args__ = (UniqueConstraint("source", "event_code", "scheduled_at"), {"schema": "intel"})
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(50))
+    event_code: Mapped[str] = mapped_column(String(80))  # e.g. "US_NFP", "US_CPI", "FOMC_DECISION"
+    title: Mapped[str] = mapped_column(String(200))
+    country: Mapped[str] = mapped_column(String(2))
+    currency: Mapped[str] = mapped_column(String(3))
+    importance: Mapped[str] = mapped_column(String(10))  # low | medium | high
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    previous: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    forecast: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    actual: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

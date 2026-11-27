@@ -39,10 +39,13 @@ def test_market_hours_with_dst(ts: datetime, open_: bool) -> None:
 
 
 def test_trading_day_and_week_boundaries() -> None:
-    assert trading_day_start(u(2026, 11, 30, 10, 0)) == u(2026, 11, 29, 23, 0)  # Mon morning -> Sun 18:00 NY
-    assert trading_day_start(u(2026, 7, 1, 23, 0)) == u(2026, 7, 1, 22, 0)  # summer
-    assert bucket_start(u(2026, 12, 2, 12, 0), "1w") == u(2026, 11, 29, 23, 0)  # Wed -> Sunday open
-    assert bucket_start(u(2026, 11, 29, 23, 30), "1w") == u(2026, 11, 29, 23, 0)
+    assert trading_day_start(u(2026, 11, 30, 10, 0)) == u(2026, 11, 29, 22, 0)  # Mon morning -> Sun 17:00 NY
+    assert trading_day_start(u(2026, 7, 1, 23, 0)) == u(2026, 7, 1, 21, 0)  # summer (EDT)
+    assert bucket_start(u(2026, 12, 2, 12, 0), "1w") == u(2026, 11, 29, 22, 0)  # Wed -> Sunday rollover
+    assert bucket_start(u(2026, 11, 29, 23, 30), "1w") == u(2026, 11, 29, 22, 0)
+    # during the daily break the trading day has already started (never in the future)
+    brk = u(2026, 11, 30, 22, 30)  # Mon 17:30 NY
+    assert trading_day_start(brk) == u(2026, 11, 30, 22, 0) <= brk
     assert bucket_start(u(2026, 11, 27, 14, 7, 31), "5m") == u(2026, 11, 27, 14, 5)
     assert bucket_start(u(2026, 11, 27, 14, 7, 31), "4h") == u(2026, 11, 27, 12, 0)
     with pytest.raises(ValueError):
