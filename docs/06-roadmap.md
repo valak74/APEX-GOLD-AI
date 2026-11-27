@@ -31,6 +31,6 @@ A strategy may move from `draft` → `validated` only if, on data it was **not**
 
 ## Open blockers
 
-1. **Broker**: recommendation in `07-broker-selection.md` — cTrader Open API (raw-spread EU broker, Pepperstone EU first candidate), IG as fallback. Pending owner confirmation and demo verification checklist. Does not block phases 2–9.
+1. **Broker**: recommendation in `07-broker-selection.md` — **Pepperstone EU via cTrader Open API selected** (IC Markets EU unavailable to French residents); fallbacks FP Markets/FxPro (same adapter) or IG. Pending demo verification checklist. Does not block phases 2–9.
 2. Budget for paid data (calendar consensus, news API, Databento) → affects phases 4 & 7 scope.
 3. Production host: Linux VPS (no Windows needed — MT5 excluded by ADR 0005).
