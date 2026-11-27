@@ -63,6 +63,24 @@ decide whether a strategy is profitable.** For slower intraday trades (stops of 
 - [ ] Reconnect behaviour and message-rate limits measured
 - Same checklist executed on IG as fallback.
 
+## 3b. Choosing among cTrader brokers (update 2026-11-27)
+
+| Broker | EU entity for French residents | cTrader commission | Verdict |
+|---|---|---|---|
+| IC Markets EU | CySEC (cTrader offered; cTrader Copy excluded on CySEC) | $3.00/side ($6 RT) | **Finalist** |
+| Pepperstone EU | CySEC | $3.50/side ($7 RT) | **Finalist** |
+| FP Markets | CySEC entity exists | to verify | Reserve |
+| FxPro | CySEC / FCA | to verify | Reserve |
+| Fusion Markets | No EU entity identified → offshore for French clients | lowest advertised | Excluded (regulation) |
+| Skilling, Purple Trading | CySEC | fees reported mixed / no data | Not prioritised |
+
+Decision method: open demo accounts at both finalists; the platform's cTrader adapter (identical for both)
+records XAUUSD spread, slippage and fill latency for ≥ 2 weeks; the broker with the lower **measured**
+all-in cost and better execution wins. Commission difference is only ~$1 per lot round trip, so the
+measured gold spread decides.
+
+Sources: https://www.compareforexbrokers.com/trading-platforms/ctrader/ , https://brokerchooser.com/best-brokers/best-brokers-for-ctrader-in-france , https://www.fxstreet.com/brokers/best/ctrader-brokers
+
 ## 4. Sources
 
 - Capital.com API: https://open-api.capital.com/ , https://help.capital.com/hc/en-us/articles/6630830103058-Do-you-have-any-limitations-on-your-API , https://capital.com/api-changelog
