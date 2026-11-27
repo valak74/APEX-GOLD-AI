@@ -31,6 +31,7 @@ Cost column = indicative round-trip cost for **1 standard lot (100 oz)**, spread
 | **Capital.com** (CySEC, EU) | REST + WebSocket | Push (max 40 instruments, ping every 10 min) | **10 req/s**; session creation limited; demo order limits historically 1000/h | Spread ~0.30–0.75 (sources vary), no commission ≈ **$30–75** | Yes (separate demo host) | Simple API. Costs higher and less transparent |
 | **Saxo** | OpenAPI REST + WebSocket | Push (deltas up to 3/s) | 120 req/min per session per service group; 10M/day per app | ~0.40 (undated source) ≈ **$40** | Yes (SIM environment) | Bank-grade, very robust API. Higher minimum deposit, wider gold cost |
 | **Interactive Brokers (IE)** | TWS API / Web API | Push via Gateway | Market-data line limits | Metals CFD: 0.015% of notional, min $2/order → at ~$4,000/oz ≈ **$60/side** on 100 oz plus spread | Yes (paper account) | Very robust, but needs IB Gateway process running; gold access requires permissions; cost structure poor for scalping |
+| Axi | No public retail API confirmed (MT4/MT5 + proprietary platform; **no cTrader**); FIX/REST only via AxiPrime (institutional, unconfirmed) | — | — | Not evaluated | — | **Excluded**: MT-centric (contradicts ADR 0005). Sources conflict on French eligibility: CySEC entity (Solaris EMEA) reportedly not passported to France → French clients routed to offshore SVG entity (weaker protection). Re-evaluate only if Axi publishes a documented retail API |
 | OANDA | v20 | Push | 20 streams/IP | — | — | **Excluded**: v20 not offered by OANDA TMS (EU) |
 
 ### What the cost means in practice
@@ -71,3 +72,4 @@ decide whether a strategy is profitable.** For slower intraday trades (stops of 
 - Pepperstone EU / API: https://pepperstone.com/en-eu/trading-platforms/tools/api-trading
 - Gold spread comparisons: https://www.economies.com/investing/commodities/gold/best-gold-trading-broker-in-the-uae-2026-xauusd-silver-and-oil-154 , https://brokerchooser.com/broker-reviews/ig-review/xauusd-spread , https://brokerchooser.com/broker-reviews/capitalcom-review/xauusd-spread
 - cTrader Open API: https://help.ctrader.com/open-api
+- Axi: https://brokerchooser.com/broker-reviews/axitrader-review/axitrader-ctrader , https://dailyforex.com/forex-brokers/axi-review , https://www.broker-forex.fr/Axi.php , https://comparebroker.io/brokers/is-axi-legal-in-france
