@@ -38,6 +38,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             login_limiter=RateLimiter(settings.login_rate_limit_per_minute),
         )
         await app.state.apex.market.start(settings, app.state.apex.sessionmaker, broker)
+        from apex.api.scanner import OpportunityScanner
+        from apex.intel.explainer import Explainer
+
+        explainer = Explainer(settings.llm_model, settings.llm_effort) if settings.llm_enabled else None
+        app.state.apex.scanner = OpportunityScanner(app.state.apex, explainer)
+        if settings.scanner_enabled:
+            app.state.apex.scanner.start()
         log.info(
             "startup",
             mode=broker.mode.value,
@@ -48,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await app.state.apex.scanner.stop()
             await app.state.apex.market.stop()
             await broker.disconnect()
             await engine.dispose()

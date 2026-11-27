@@ -4,6 +4,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -64,3 +65,4 @@ class AppState:
     login_limiter: RateLimiter
     trading: TradingState = field(default_factory=TradingState)
     market: MarketFeed = field(default_factory=MarketFeed)
+    scanner: Any = None  # OpportunityScanner (set at startup)

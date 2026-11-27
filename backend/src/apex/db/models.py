@@ -159,3 +159,24 @@ class EconomicEvent(Base):
     forecast: Mapped[str | None] = mapped_column(String(40), nullable=True)
     actual: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OpportunityRow(Base):
+    """Every opportunity the scanner detected, with its full explanation (audit trail, learning data)."""
+
+    __tablename__ = "opportunities"
+    __table_args__ = {"schema": "trading"}
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    setup: Mapped[str] = mapped_column(String(50))
+    direction: Mapped[str] = mapped_column(String(8))
+    timeframe: Mapped[str] = mapped_column(String(4))
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    quality: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    narrative: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

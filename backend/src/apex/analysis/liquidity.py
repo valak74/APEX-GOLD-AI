@@ -156,16 +156,24 @@ def sweeps(
 ) -> list[Sweep]:
     a = atr(c, atr_n)
     out: list[Sweep] = []
-    targets: list[tuple[int, str, float, str]] = []  # known_from, side, level, target
-    targets += [(p.idx, p.side, p.level, "pool") for p in pools]
+    # (known_from, side, level, target kind, swing idx or -1)
+    targets: list[tuple[int, str, float, str, int]] = [(p.idx, p.side, p.level, "pool", -1) for p in pools]
     targets += [
-        (s.confirmed_idx, "highs" if s.kind == "high" else "lows", s.price, "swing") for s in st.swings
+        (s.confirmed_idx, "highs" if s.kind == "high" else "lows", s.price, "swing", s.idx) for s in st.swings
     ]
+    # Once a pool is known, its member swings are swept as the pool (one event, not two). Causal: before the
+    # pool exists, each swing is a target on its own.
+    pool_known: dict[int, int] = {}
+    for p in pools:
+        for si in p.swing_idxs:
+            pool_known[si] = min(pool_known.get(si, p.idx), p.idx)
     used: set[tuple[str, float]] = set()
     for i in range(len(c)):
         u = _unit(a, c, i)
-        for known, side, lvl, tgt in targets:
+        for known, side, lvl, tgt, sidx in targets:
             if known >= i or (side, lvl) in used:
+                continue
+            if tgt == "swing" and pool_known.get(sidx, i) < i:
                 continue
             if side == "highs" and c.h[i] - lvl >= min_pierce_atr * u and c.c[i] < lvl:
                 used.add((side, lvl))

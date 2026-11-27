@@ -19,6 +19,7 @@ dependencies = [
     "cryptography>=42",
     "protobuf>=5.27",
     "numpy>=2.0",
+    "anthropic>=2.14",
     "httpx>=0.27",
 ]
 
@@ -60,6 +61,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "N817"]
 "src/apex/db/models.py" = ["RUF012"]
+"src/apex/intel/explainer.py" = ["E501"]  # prompt text
 "src/apex/broker/ctrader/setup_cli.py" = ["ASYNC250"]  # interactive terminal prompts
 "migrations/**" = ["ALL"]
 

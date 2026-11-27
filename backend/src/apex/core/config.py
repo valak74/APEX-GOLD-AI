@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     ctrader_port: int = 5035
     ctrader_use_tls: bool = True  # may only be disabled in the test environment
 
+    # Opportunity scanner and optional LLM explanations (off by default: each explanation is a paid API call)
+    scanner_enabled: bool = True
+    scanner_interval_s: int = 30
+    llm_enabled: bool = False
+    llm_model: str = "claude-opus-5-5"
+    llm_effort: Literal["low", "medium", "high"] = "low"
+
     log_level: str = "INFO"
     log_json: bool = True
 

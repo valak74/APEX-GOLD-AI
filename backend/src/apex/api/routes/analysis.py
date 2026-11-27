@@ -11,19 +11,22 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from apex.analysis.engine import analyze_tf, mtf_context
-from apex.analysis.indicators import Candles
+from apex.analysis.indicators import Candles, ema, rsi
 from apex.analysis.levels import reference_levels
 from apex.analysis.liquidity import equal_levels, fair_value_gaps, order_blocks, sweeps
+from apex.analysis.opportunities import opportunity_from_payload
 from apex.analysis.stats import event_study
 from apex.analysis.structure import analyze_structure
 from apex.api.deps import ReAuth, SessionDep, StateDep, require_role, verify_reauth
 from apex.api.routes.system import active_risk_config, collect_bars
 from apex.db.audit import append_audit
-from apex.db.models import User
+from apex.db.models import OpportunityRow, User
 from apex.domain.enums import Role
 from apex.domain.models import utcnow
 from apex.intel.calendar import EventIn, evaluate_lockout, import_events, upcoming
@@ -157,3 +160,78 @@ async def calendar_import(
     await append_audit(session, user.email, "calendar_imported", details={"source": body.source, "events": n})
     await session.commit()
     return {"imported": n}
+
+
+# --------------------------------------------------------------------------- opportunities
+Trader = Annotated[User, Depends(require_role(Role.TRADER))]
+
+
+@router.get("/opportunities")
+async def list_opportunities(_: Viewer, session: SessionDep, limit: int = 30) -> list[dict[str, Any]]:
+    """Active opportunities first, then the most recent closed ones."""
+    rows = (
+        (
+            await session.execute(
+                select(OpportunityRow)
+                .order_by(OpportunityRow.detected_at.desc())
+                .limit(max(1, min(limit, 200)))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    rows = sorted(rows, key=lambda r: r.status != "active")
+    return [{**r.payload, "status": r.status, "narrative": r.narrative} for r in rows]
+
+
+@router.get("/opportunities/{opp_id}")
+async def get_opportunity(opp_id: str, _: Viewer, session: SessionDep) -> dict[str, Any]:
+    row = await session.get(OpportunityRow, opp_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "opportunity not found")
+    return {**row.payload, "status": row.status, "narrative": row.narrative}
+
+
+@router.post("/opportunities/scan")
+async def scan_now(_: Trader, state: StateDep) -> dict[str, int]:
+    new = await state.scanner.scan_once()
+    return {"new": len(new)}
+
+
+@router.post("/opportunities/{opp_id}/explain")
+async def explain_opportunity(opp_id: str, _: Trader, state: StateDep, session: SessionDep) -> dict[str, Any]:
+    """Ask the LLM for a written explanation (only when APEX_LLM_ENABLED=true)."""
+    if state.scanner is None or state.scanner.explainer is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "explications IA désactivées (APEX_LLM_ENABLED)"
+        )
+    row = await session.get(OpportunityRow, opp_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "opportunity not found")
+    if row.narrative:
+        return row.narrative
+    n: dict[str, Any] | None = await state.scanner.explain(opportunity_from_payload(row.payload))
+    if n is None:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "le modèle n'a pas pu produire d'explication")
+    return n
+
+
+@router.get("/analysis/indicators")
+async def indicators(
+    _: Viewer, state: StateDep, session: SessionDep, timeframe: str = "5m", limit: int = 400
+) -> dict[str, Any]:
+    """Indicator series aligned with ``/market/bars`` (same bars, same order) for chart overlays."""
+    c = await _candles(state, session, timeframe, max(1, min(limit, 2000)))
+
+    def compute() -> dict[str, Any]:
+        def clean(x: Any) -> list[float | None]:
+            return [None if np.isnan(v) else round(float(v), 3) for v in x]
+
+        return {
+            "t": c.t,
+            "ema50": clean(ema(c.c, 50)),
+            "ema200": clean(ema(c.c, 200)),
+            "rsi": clean(rsi(c.c)),
+        }
+
+    return await asyncio.to_thread(compute)
