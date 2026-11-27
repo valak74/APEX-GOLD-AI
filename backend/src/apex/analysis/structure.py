@@ -16,6 +16,7 @@ Definitions (all parameters explicit, all events causal):
 
 from __future__ import annotations
 
+import heapq
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -91,6 +92,8 @@ def analyze_structure(c: Candles, k: int = 3, atr_n: int = 14) -> Structure:
     for s in st.swings:
         by_conf.setdefault(s.confirmed_idx, []).append(s)
     broken: set[int] = set()
+    bull_heap: list[tuple[float, int]] = []
+    bear_heap: list[tuple[float, int]] = []
     for i in range(len(c)):
         for s in by_conf.get(i, []):
             if s.kind == "high":
@@ -99,12 +102,14 @@ def analyze_structure(c: Candles, k: int = 3, atr_n: int = 14) -> Structure:
                 st.last_low = s
         close = float(c.c[i])
         unit = float(a[i]) if not np.isnan(a[i]) and a[i] > 0 else max(float(c.h[i] - c.l[i]), 1e-9)
-        for ev in st.events:  # invalidation tracking
-            if ev.invalidated_idx is None and ev.invalidation_level is not None:
-                if (ev.direction == "bullish" and close < ev.invalidation_level) or (
-                    ev.direction == "bearish" and close > ev.invalidation_level
-                ):
-                    ev.invalidated_idx = i
+        # invalidation tracking in O(log n): bullish breaks die on a close below their level (max-heap),
+        # bearish ones on a close above (min-heap)
+        while bull_heap and -bull_heap[0][0] > close:
+            _, k = heapq.heappop(bull_heap)
+            st.events[k].invalidated_idx = i
+        while bear_heap and bear_heap[0][0] < close:
+            _, k = heapq.heappop(bear_heap)
+            st.events[k].invalidated_idx = i
         hi, lo = st.last_high, st.last_low
         if hi is not None and hi.idx not in broken and i > hi.confirmed_idx - 1 and close > hi.price:
             kind: Literal["BOS", "CHoCH"] = "CHoCH" if st.trend == "down" else "BOS"
@@ -123,6 +128,8 @@ def analyze_structure(c: Candles, k: int = 3, atr_n: int = 14) -> Structure:
                     "close below the swing low preceding the break",
                 )
             )
+            if lo is not None:
+                heapq.heappush(bull_heap, (-lo.price, len(st.events) - 1))
             st.trend = "up"
         elif lo is not None and lo.idx not in broken and close < lo.price:
             kind2: Literal["BOS", "CHoCH"] = "CHoCH" if st.trend == "up" else "BOS"
@@ -141,5 +148,20 @@ def analyze_structure(c: Candles, k: int = 3, atr_n: int = 14) -> Structure:
                     "close above the swing high preceding the break",
                 )
             )
+            if hi is not None:
+                heapq.heappush(bear_heap, (hi.price, len(st.events) - 1))
             st.trend = "down"
     return st
+
+
+def trend_series(st: Structure, n: int) -> list[str]:
+    """Structure trend after each bar (direction of the last BOS/CHoCH at or before it), causal."""
+    out = ["none"] * n
+    events = sorted(st.events, key=lambda e: e.idx)
+    k, cur = 0, "none"
+    for i in range(n):
+        while k < len(events) and events[k].idx <= i:
+            cur = "up" if events[k].direction == "bullish" else "down"
+            k += 1
+        out[i] = cur
+    return out

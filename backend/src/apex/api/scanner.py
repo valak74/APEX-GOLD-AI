@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -77,9 +78,21 @@ class OpportunityScanner:
             }
             ctx = await asyncio.to_thread(mtf_context, frames, None, now)
             blockers = await self._blockers(session, now)
+            cfg, _ = await active_risk_config(session)
+            spec = await self.state.broker.get_symbol_spec("XAUUSD")
+            q = self.state.market.quality.report("XAUUSD", now)
+            spread = float(q.spread_median) if q.spread_median is not None else 0.3
+            px = frames["5m"].c[-1] if len(frames["5m"]) else 4000.0
+            comm = (
+                float(spec.commission_for(Decimal(1), Decimal(str(round(float(px), 2)))))
+                * 2
+                / float(spec.contract_size)
+            )
             found: list[Opportunity] = []
             for tf in SCAN_TIMEFRAMES:
-                found += await asyncio.to_thread(detect, frames[tf], ctx)
+                found += await asyncio.to_thread(
+                    detect, frames[tf], ctx, True, spread + comm, float(cfg.min_risk_reward)
+                )
             for opp in found:
                 if await session.get(OpportunityRow, opp.id) is not None:
                     continue

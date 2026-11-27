@@ -54,10 +54,10 @@ def sweep_series() -> Candles:
             (3996, 3997, 3994, 3995),
             (3995, 3996, low, 3994),
             (3994, 3998, 3993.5, 3997),
-            (3997, 4000, 3996, 3999),
-            (3999, 4001, 3998, 4000),
+            (3997, 3998.5, 3996, 3998),
+            (3998, 3999, 3997, 3998.5),
         ]
-    rows += [(4000, 4001, 3996, 3997), (3997, 3998, 3986.0, 3993.0)]  # sweep below 3990, close back above
+    rows += [(3998.5, 3999, 3996, 3997), (3997, 3998, 3986.0, 3993.0)]  # sweep below 3990, close back above
     return mk(rows)
 
 
@@ -320,3 +320,13 @@ def test_same_sweep_seen_on_consecutive_scans_is_one_opportunity() -> None:
     assert len(ids) == 1
     o = next(x for x in detect(c) if x.setup == "liquidity_sweep_reversal")
     assert o.evidence["trigger_bar"] == c.t[-1]  # marker on the sweep bar
+
+
+def test_detector_drops_ideas_that_costs_make_unattractive() -> None:
+    c = sweep_series()
+    raw = [o for o in detect(c) if o.setup == "liquidity_sweep_reversal"]
+    assert raw and raw[0].net_risk_reward == raw[0].risk_reward  # no costs given
+    costly = [
+        o for o in detect(c, cost_per_unit=50.0, min_net_rr=1.5) if o.setup == "liquidity_sweep_reversal"
+    ]
+    assert costly == []

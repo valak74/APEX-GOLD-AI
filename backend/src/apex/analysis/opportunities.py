@@ -72,6 +72,9 @@ class Opportunity:
     stats: dict[str, Any] | None = None
     status: str = "active"
     narrative: dict[str, Any] | None = None
+    net_risk_reward: float | None = (
+        None  # after estimated spread + commission (same formula as the risk engine)
+    )
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -179,8 +182,30 @@ def _finish(
     )
 
 
-def detect(c: Candles, ctx: MTFContext | None = None, with_stats: bool = True) -> list[Opportunity]:
-    """Scan the last completed bars of one timeframe. ``c`` must contain completed bars only."""
+def detect(
+    c: Candles,
+    ctx: MTFContext | None = None,
+    with_stats: bool = True,
+    cost_per_unit: float = 0.0,
+    min_net_rr: float = 0.0,
+) -> list[Opportunity]:
+    """Scan the last completed bars of one timeframe. ``c`` must contain completed bars only.
+
+    ``cost_per_unit``: round-trip spread + commission in price units.
+    Ideas whose R:R after these costs is below
+    ``min_net_rr`` are dropped — the risk engine would refuse them anyway."""
+    found = _detect(c, ctx, with_stats)
+    out = []
+    for o in found:
+        risk = abs(o.entry - o.stop)
+        reward = abs(o.targets[0] - o.entry)
+        o.net_risk_reward = round((reward - cost_per_unit) / (risk + cost_per_unit), 2) if risk > 0 else 0.0
+        if o.net_risk_reward >= min_net_rr:
+            out.append(o)
+    return out
+
+
+def _detect(c: Candles, ctx: MTFContext | None, with_stats: bool) -> list[Opportunity]:
     if len(c) < 60:
         return []
     st = analyze_structure(c)

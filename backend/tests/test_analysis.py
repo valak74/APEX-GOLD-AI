@@ -276,3 +276,32 @@ def test_mtf_context_bias_and_conflict() -> None:
     assert not short.htf_available and any("1d/4h" in x for x in short.summary)
     one = analyze_tf(up)
     assert one.effective_trend == "up" and one.indicators["atr"] is not None
+
+
+@settings(max_examples=25, deadline=None)
+@given(st.integers(0, 10_000), st.integers(80, 299))
+def test_property_regime_series_matches_live_classifier(seed: int, cut: int) -> None:
+    from apex.analysis.regime import classify_series
+
+    c = random_walk(300, seed, drift=float(seed % 3 - 1) * 0.3)
+    series = classify_series(c, analyze_structure(c))
+    h = c.head(cut)
+    live = classify(h, analyze_structure(h))
+    assert (series[cut - 1].label, series[cut - 1].direction, series[cut - 1].risk_multiplier) == (
+        live.label,
+        live.direction,
+        live.risk_multiplier,
+    )
+
+
+@settings(max_examples=60, deadline=None)
+@given(st.integers(0, 10_000), st.floats(0.5, 3.0))
+def test_property_fast_sweeps_equal_reference(seed: int, vol: float) -> None:
+    from apex.analysis.liquidity import sweeps_reference
+
+    c = random_walk(400, seed, vol=vol)
+    s = analyze_structure(c)
+    fast = sweeps(c, s, equal_levels(c, s.swings))
+    ref = sweeps_reference(c, s, equal_levels(c, s.swings))
+    key = lambda x: (x.idx, x.direction, x.level, x.target, x.score)  # noqa: E731
+    assert sorted(map(key, fast)) == sorted(map(key, ref))

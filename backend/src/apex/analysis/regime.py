@@ -28,7 +28,7 @@ from typing import Literal
 import numpy as np
 
 from apex.analysis.indicators import Candles, adx, atr, efficiency_ratio, percentile_rank
-from apex.analysis.structure import Structure
+from apex.analysis.structure import Structure, trend_series
 
 Label = Literal["strong_trend", "weak_trend", "range", "breakout", "transition", "insufficient_data"]
 
@@ -48,16 +48,37 @@ def _f(x: float) -> float | None:
     return None if np.isnan(x) else round(float(x), 4)
 
 
+Arrays = tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+
+
+def regime_arrays(c: Candles) -> Arrays:
+    a, pdi, mdi = adx(c)
+    at = atr(c)
+    return a, pdi, mdi, efficiency_ratio(c.c, 20), at, percentile_rank(at, 200)
+
+
 def classify(c: Candles, st: Structure, min_bars: int = 60) -> Regime:
+    """Regime at the last bar."""
     if len(c) < min_bars:
         return Regime(
             "insufficient_data", "neutral", "unknown", 0.0, reasons=[f"moins de {min_bars} bougies"]
         )
-    a, pdi, mdi = adx(c)
-    er = efficiency_ratio(c.c, 20)
-    at = atr(c)
-    rank = percentile_rank(at, 200)
-    i = len(c) - 1
+    return classify_at(c, regime_arrays(c), len(c) - 1, st.trend, min_bars)
+
+
+def classify_series(c: Candles, st: Structure, min_bars: int = 60) -> list[Regime]:
+    """Regime at every bar, causally (same rules as ``classify``; used by the backtester)."""
+    arr = regime_arrays(c)
+    trends = trend_series(st, len(c))
+    return [classify_at(c, arr, i, trends[i], min_bars) for i in range(len(c))]
+
+
+def classify_at(c: Candles, arr: Arrays, i: int, trend: str, min_bars: int = 60) -> Regime:
+    if i + 1 < min_bars:
+        return Regime(
+            "insufficient_data", "neutral", "unknown", 0.0, reasons=[f"moins de {min_bars} bougies"]
+        )
+    a, pdi, mdi, er, at, rank = arr
     m = {
         "adx": _f(a[i]),
         "plus_di": _f(pdi[i]),
@@ -78,7 +99,7 @@ def classify(c: Candles, st: Structure, min_bars: int = 60) -> Regime:
 
     adx_v, er_v = float(a[i]), float(er[i])
     di_dir = "bullish" if pdi[i] > mdi[i] else "bearish"
-    st_dir = {"up": "bullish", "down": "bearish"}.get(st.trend, "neutral")
+    st_dir = {"up": "bullish", "down": "bearish"}.get(trend, "neutral")
     r = float(rank[i]) if not np.isnan(rank[i]) else None
     vol: Literal["low", "normal", "high", "unknown"] = (
         "unknown" if r is None else "high" if r >= 0.85 else "low" if r <= 0.15 else "normal"

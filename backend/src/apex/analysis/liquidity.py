@@ -21,6 +21,7 @@ by ``apex.analysis.stats`` on history before any strategy may rely on them.
 
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -151,7 +152,7 @@ def equal_levels(c: Candles, swings: list[Swing], tol_atr: float = 0.1, atr_n: i
     return pools
 
 
-def sweeps(
+def sweeps_reference(
     c: Candles, st: Structure, pools: list[Pool], min_pierce_atr: float = 0.05, atr_n: int = 14
 ) -> list[Sweep]:
     a = atr(c, atr_n)
@@ -261,3 +262,88 @@ def premium_discount(c: Candles, st: Structure) -> dict[str, float | str] | None
         "position": round(pos, 3),
         "zone": zone,
     }
+
+
+def sweeps(
+    c: Candles, st: Structure, pools: list[Pool], min_pierce_atr: float = 0.05, atr_n: int = 14
+) -> list[Sweep]:
+    """Same semantics as ``sweeps_reference`` (equivalence-tested) in O(n log n): at each bar only levels that
+    can be swept by that bar's range are examined."""
+    a = atr(c, atr_n)
+    n = len(c)
+    targets: list[tuple[int, str, float, str, int]] = [(p.idx, p.side, p.level, "pool", -1) for p in pools]
+    targets += [
+        (s.confirmed_idx, "highs" if s.kind == "high" else "lows", s.price, "swing", s.idx) for s in st.swings
+    ]
+    pool_known: dict[int, int] = {}
+    for p in pools:
+        for si in p.swing_idxs:
+            pool_known[si] = min(pool_known.get(si, p.idx), p.idx)
+    by_known = sorted(range(len(targets)), key=lambda k: targets[k][0])
+    active: dict[str, list[tuple[float, int]]] = {"highs": [], "lows": []}  # sorted (level, original order)
+    used: set[tuple[str, float]] = set()
+    ptr = 0
+    out: list[Sweep] = []
+    for i in range(n):
+        while ptr < len(by_known) and targets[by_known[ptr]][0] < i:  # known strictly before this bar
+            k = by_known[ptr]
+            bisect.insort(active[targets[k][1]], (targets[k][2], k))
+            ptr += 1
+        u = _unit(a, c, i)
+        pu = min_pierce_atr * u
+        hi, lo, cl = float(c.h[i]), float(c.l[i]), float(c.c[i])
+        eps = 1e-9 * max(1.0, abs(hi))
+        cands: list[int] = []
+        lst = active["highs"]  # sweepable highs: close < level <= high - pierce
+        j = bisect.bisect_right(lst, (cl, float("inf")))
+        while j < len(lst) and lst[j][0] <= hi - pu + eps:
+            cands.append(lst[j][1])
+            j += 1
+        lst = active["lows"]  # sweepable lows: low + pierce <= level < close
+        j = bisect.bisect_left(lst, (lo + pu - eps, -1))
+        while j < len(lst) and lst[j][0] < cl:
+            cands.append(lst[j][1])
+            j += 1
+        for k in sorted(cands):  # original priority order (pools first)
+            _known, side, lvl, tgt, sidx = targets[k]
+            if (side, lvl) in used or (tgt == "swing" and pool_known.get(sidx, i) < i):
+                continue
+            if side == "highs" and c.h[i] - lvl >= pu and c.c[i] < lvl:
+                used.add((side, lvl))
+                out.append(
+                    Sweep(
+                        "bearish",
+                        i,
+                        c.t[i],
+                        lvl,
+                        hi,
+                        round(min(1.0, (c.h[i] - lvl) / u), 3),
+                        tgt,
+                        "wick above, close back below",
+                        hi,
+                        "close above the sweep high",
+                    )
+                )
+            elif side == "lows" and lvl - c.l[i] >= pu and c.c[i] > lvl:
+                used.add((side, lvl))
+                out.append(
+                    Sweep(
+                        "bullish",
+                        i,
+                        c.t[i],
+                        lvl,
+                        lo,
+                        round(min(1.0, (lvl - c.l[i]) / u), 3),
+                        tgt,
+                        "wick below, close back above",
+                        lo,
+                        "close below the sweep low",
+                    )
+                )
+    for p in pools:  # first bar after the pool is known that trades beyond it
+        if p.swept_idx is not None or p.idx + 1 >= n:
+            continue
+        seg = c.h[p.idx + 1 :] > p.level if p.side == "highs" else c.l[p.idx + 1 :] < p.level
+        if seg.any():
+            p.swept_idx = p.idx + 1 + int(np.argmax(seg))
+    return out
