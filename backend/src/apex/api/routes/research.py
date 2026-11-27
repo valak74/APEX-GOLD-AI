@@ -85,6 +85,7 @@ async def list_diagnostics(_: Viewer, session: SessionDep, limit: int = 30) -> l
                 "request": r.request,
                 "tests_total": rep.get("tests_total"),
                 "retained_total": rep.get("retained_total"),
+                "edges_total": rep.get("edges_total"),
                 "data": rep.get("data"),
             }
         )

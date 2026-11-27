@@ -58,7 +58,8 @@ pause ends at the next 17:00 New York rollover. A regression test covers this.
   hence the stop-first rule.
 - Walk-forward reuses one full-history simulation per variant, partitioned by period. Account-dependent sizing makes
   this a close approximation of separate runs.
-- Not yet implemented: the deflated Sharpe ratio (roadmap criterion), latency modelling, partial fills, and the
+- Deflated Sharpe ratio and reserved holdout: see `15-research-diagnostics.md`.
+- Not yet implemented: latency modelling, partial fills, and the
   "session breakout" strategy listed in the roadmap.
 - Sharpe and Sortino are reported only with at least 20 trading days.
 

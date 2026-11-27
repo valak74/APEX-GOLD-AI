@@ -158,6 +158,7 @@ export function PriceChart({ focus = null, onClearFocus }: { focus?: Opportunity
       } catch {
         return;
       }
+      if (series.current !== s) return; // chart destroyed or rebuilt while the request was in flight
       setEmpty(bars.length === 0);
       if (!bars.length) return;
       const candles = bars.map(toCandle);

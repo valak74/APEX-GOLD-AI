@@ -268,6 +268,8 @@ def component_tests(c: Candles, comps: dict[str, list[Event]], st: Any) -> list[
 
 
 # --------------------------------------------------------------------------- 3. exit study
+SETUP_FR = {"liquidity_sweep_reversal": "balayage de liquidité", "trend_pullback": "repli dans la tendance"}
+
 EXIT_RULES: dict[str, str] = {
     "liquidity": "Objectif de liquidité (règle actuelle)",
     "fixed_1r": "Objectif fixe 1 R",
@@ -449,7 +451,7 @@ def findings(
     if good_exits:
         r = max(good_exits, key=lambda x: x["expectancy_r"])
         out.append(
-            f"Meilleure sortie significative : {EXIT_RULES[r['rule']]} sur {r['setup']} en {r['timeframe']}, "
+            f"Meilleure sortie significative : {EXIT_RULES[r['rule']]} sur « {SETUP_FR.get(r['setup'], r['setup'])} » en {r['timeframe']}, "
             f"{_fmt(r['expectancy_r'], 3)} R par trade (n = {r['n']})."
         )
     else:
@@ -507,6 +509,8 @@ def diagnose(
         "tests_total": len(flags),
         "significant_total": sum(flags),
         "retained_total": sum(1 for r in comps + tested if r["retained"]),
+        "edges_total": sum(1 for r in comps if r["retained"] and r["mean_excess_atr"] > 0)
+        + sum(1 for r in tested if r["retained"] and r["expectancy_r"] > 0),
         "fdr": FDR,
         "findings": findings(costs, comps, exits),
         "labels": {"components": COMPONENT_FR, "exits": EXIT_RULES},

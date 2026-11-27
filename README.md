@@ -60,4 +60,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Opportunities & AI](docs/12-opportunities-and-ai.md) | Setup detection, explanations, LLM role, enabling it |
 | [Phase 6 report](docs/13-phase6-risk-engine.md) | Risk engine: checks, journal, guard, activation |
 | [Phases 5 + 7](docs/14-backtesting.md) | Strategies, backtester, validation gate |
+| [Research](docs/15-research-diagnostics.md) | Edge diagnostics, reserved holdout, deflated Sharpe |
 | [ADRs](docs/adr/) | Key architectural decisions |

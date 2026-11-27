@@ -74,6 +74,7 @@ export default function BacktestsPage() {
         <aside className="space-y-4 xl:col-span-4">
           <BacktestForm
             canRun={canRun}
+            isAdmin={me.role === "admin"}
             onStarted={(id) => {
               setSelected(id);
               setDetail({ id, status: "running", error: null, request: items[0]?.request, report: null, created_at: "", finished_at: null } as BacktestDetail);

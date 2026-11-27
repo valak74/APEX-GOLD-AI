@@ -113,6 +113,7 @@ function Nav() {
   const path = usePathname();
   const items = [
     { href: "/", label: "Marché" },
+    { href: "/research", label: "Recherche" },
     { href: "/backtests", label: "Backtests" },
   ];
   return (

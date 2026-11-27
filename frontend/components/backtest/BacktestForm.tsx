@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { api, ApiError, SETUP_FR, type BacktestRequest, type Setup } from "@/lib/api";
+import { useEffect, useState, type ReactNode } from "react";
+import { api, ApiError, SETUP_FR, toDate, type BacktestRequest, type Holdout, type Setup } from "@/lib/api";
 import { Card, Segmented } from "../ui";
 
 const SESSIONS = [
@@ -28,8 +28,13 @@ const DEFAULTS: BacktestRequest = {
 
 const input = "num w-full rounded-lg border border-line bg-bg/60 px-3 py-2 text-sm outline-none transition focus:border-gold";
 
-export function BacktestForm({ canRun, onStarted }: { canRun: boolean; onStarted: (id: number) => void }) {
+export function BacktestForm({ canRun, isAdmin, onStarted }: { canRun: boolean; isAdmin: boolean; onStarted: (id: number) => void }) {
   const [f, setF] = useState<BacktestRequest>(DEFAULTS);
+  const [hold, setHold] = useState<Holdout | null>(null);
+  useEffect(() => {
+    api<Holdout>("/research/holdout").then(setHold).catch(() => setHold(null));
+  }, []);
+  const holdDay = hold?.start ? toDate(hold.start).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : null;
   const [adv, setAdv] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -70,7 +75,7 @@ export function BacktestForm({ canRun, onStarted }: { canRun: boolean; onStarted
         </Field>
         <div className="flex flex-wrap items-end gap-4">
           <Field label="Unité de temps">
-            <Segmented label="Unité de temps" value={f.timeframe} options={["5m", "15m"] as const} onChange={(v) => set("timeframe", v)} />
+            <Segmented label="Unité de temps" value={f.timeframe} options={["5m", "15m", "1h"] as const} onChange={(v) => set("timeframe", v)} />
           </Field>
           <Field label="Capital (USD)" className="flex-1">
             <input className={input} type="number" min={100} step={100} value={f.initial_balance} onChange={(e) => set("initial_balance", Number(e.target.value))} />
@@ -133,6 +138,23 @@ export function BacktestForm({ canRun, onStarted }: { canRun: boolean; onStarted
           </div>
         )}
 
+        {holdDay && (
+          <div className="rounded-xl border border-line-soft bg-bg/40 p-3 text-xs text-muted">
+            {f.final_holdout ? (
+              <span className="text-warn">
+                Verdict final : le test portera uniquement sur la période réservée depuis le {holdDay}. Déjà consultée {hold?.consultations ?? 0} fois — chaque consultation affaiblit sa valeur de preuve.
+              </span>
+            ) : (
+              <>Recherche jusqu&apos;au {holdDay}. La suite est réservée au verdict final et n&apos;est jamais utilisée ici.</>
+            )}
+            {isAdmin && (
+              <label className="mt-2 flex items-center gap-2 text-muted">
+                <input type="checkbox" checked={!!f.final_holdout} onChange={(e) => set("final_holdout", e.target.checked)} className="accent-[#e0b55b]" />
+                Verdict final sur la période réservée
+              </label>
+            )}
+          </div>
+        )}
         <button
           disabled={!canRun || busy || f.sessions.length === 0}
           className="w-full rounded-lg bg-gold py-2.5 text-sm font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"

@@ -66,6 +66,7 @@ function Report({ d, r }: { d: BacktestDetail; r: BTReport }) {
             <h2 className="mt-1 text-lg font-semibold">
               {SETUP_FR[d.request.setup]} <span className="num text-sm font-normal text-muted">· {r.data.timeframe}</span>
             </h2>
+            {r.data.final_holdout && <div className="mt-1"><Badge tone="gold">Verdict final · période réservée</Badge></div>}
             <p className="num mt-1 text-xs text-muted">
               {day(r.data.start)} → {day(r.data.end)} · {r.data.bars.toLocaleString("fr-FR")} bougies · source {r.data.sources.join(", ") || "—"}
             </p>

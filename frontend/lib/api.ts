@@ -302,7 +302,7 @@ export const SETUP_FR: Record<Setup, string> = {
 
 export type BacktestRequest = {
   setup: Setup;
-  timeframe: "5m" | "15m";
+  timeframe: "5m" | "15m" | "1h";
   start: string | null;
   end: string | null;
   stop_buffer_atr: number;
@@ -314,6 +314,7 @@ export type BacktestRequest = {
   slippage: number;
   swap_per_lot_night: number;
   initial_balance: number;
+  final_holdout?: boolean;
 };
 
 export type Group = { n: number; avg_r: number; win_rate: number };
@@ -353,7 +354,7 @@ export type BTTrade = {
 export type GateItem = { name: string; passed: boolean; value: string; requirement: string };
 
 export type BTReport = {
-  data: { bars: number; timeframe: string; start: string; end: string; sources: string[]; news_windows: number };
+  data: { bars: number; timeframe: string; start: string; end: string; sources: string[]; news_windows: number; holdout_start?: string | null; final_holdout?: boolean };
   params: Record<string, unknown>;
   costs: Record<string, number>;
   assumptions: Record<string, string>;
@@ -391,3 +392,45 @@ export type BacktestDetail = {
 export function toDate(s: string): Date {
   return new Date(s.includes("T") ? s : s.replace(" ", "T"));
 }
+
+// --------------------------------------------------------------------------- research
+export type Holdout = { start: string | null; created_at: string | null; note: string | null; consultations: number };
+
+export type CompRow = {
+  timeframe: string; component: string; condition_key: string; condition: string; horizon: number; n: number; events: number;
+  mean_excess_atr: number; ci: [number | null, number | null]; hit_rate: number; p: number; halves: [number | null, number | null];
+  significant: boolean; exceeds_cost: boolean; stable: boolean; retained: boolean;
+};
+
+export type ExitRow = {
+  timeframe: string; setup: Setup; rule: string; n: number; expectancy_r?: number; ci?: [number | null, number | null];
+  win_rate?: number; p?: number; halves?: [number | null, number | null]; significant?: boolean; stable?: boolean; retained?: boolean;
+};
+
+export type CostRow = {
+  timeframe: string; bars: number; median_atr?: number; median_spread?: number; commission_rt?: number; slippage_rt?: number;
+  roundtrip_cost?: number; cost_pct_atr?: number; skipped?: string;
+};
+
+export type DiagReport = {
+  costs: CostRow[];
+  event_counts: Record<string, Record<string, number>>;
+  components: CompRow[];
+  exits: ExitRow[];
+  tests_total: number;
+  significant_total: number;
+  retained_total: number;
+  edges_total: number;
+  fdr: number;
+  findings: string[];
+  labels: { components: Record<string, string>; exits: Record<string, string> };
+  method: Record<string, string>;
+  data: { bars_5m: number; start: string; end: string; sources: string[]; holdout_start: string | null; holdout_note: string; previous_diagnostics: number };
+};
+
+export type DiagListItem = {
+  id: number; created_at: string; created_by: string; status: "running" | "done" | "error"; error: string | null;
+  request: { timeframes: string[] }; tests_total: number | null; retained_total: number | null; edges_total: number | null; data: DiagReport["data"] | null;
+};
+
+export type DiagDetail = { id: number; status: "running" | "done" | "error"; error: string | null; report: DiagReport | null; created_at: string };
