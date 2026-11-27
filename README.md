@@ -17,4 +17,5 @@ Research-driven, risk-first automated trading platform for XAU/USD.
 | [Database design](docs/04-database-design.md) | Schemas, hypertables, retention |
 | [Security](docs/05-security-architecture.md) | Threat model, secrets, auth, immutability of risk config |
 | [Roadmap](docs/06-roadmap.md) | Phases, exit gates, strategy validation criteria, blockers |
+| [Broker selection](docs/07-broker-selection.md) | Direct-API broker comparison & recommendation |
 | [ADRs](docs/adr/) | Key architectural decisions |

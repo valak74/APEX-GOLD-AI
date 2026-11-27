@@ -119,7 +119,8 @@ Never a generic "pip value" formula. Using broker symbol spec:
 price_risk        = |entry − stop_loss|                       (quote ccy per unit, USD/oz)
 loss_per_lot_qc   = price_risk × contract_size                (USD per lot; contract_size from broker, e.g. 100 oz)
                     (equivalently ticks × tick_value, using broker trade_tick_size/value)
-loss_per_lot_ac   = loss_per_lot_qc × fx(quote→account)       (e.g. USD→EUR via live EURUSD bid/ask, conservative side)
+loss_per_lot_ac   = loss_per_lot_qc × fx(quote→account)       (account ccy chosen by user — ADR 0006; USD→EUR via 1/EURUSD,
+                                                               USD→CHF via USDCHF, etc.; conservative side; stale rate ⇒ no trade)
                     + estimated_costs_per_lot_ac               (spread at stop + commission round-trip + slippage buffer)
 risk_budget_ac    = equity × risk_pct  (min of equity/balance; capped by remaining daily/weekly budget)
 raw_lots          = risk_budget_ac / loss_per_lot_ac
