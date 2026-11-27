@@ -43,6 +43,8 @@ services:
       APEX_LLM_ENABLED: ${APEX_LLM_ENABLED:-false}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       APEX_FRED_API_KEY: ${APEX_FRED_API_KEY:-}
+      APEX_TELEGRAM_BOT_TOKEN: ${APEX_TELEGRAM_BOT_TOKEN:-}
+      APEX_TELEGRAM_CHAT_ID: ${APEX_TELEGRAM_CHAT_ID:-}
     depends_on:
       db: { condition: service_healthy }
     networks: [internal]

@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 import apex
-from apex.api.routes import analysis, auth, backtests, brokers, macro, research, risk, system
+from apex.api.routes import analysis, auth, backtests, brokers, macro, paper, research, risk, system
 from apex.api.state import AppState, RateLimiter
 from apex.broker.factory import build_broker
 from apex.core.config import Settings, get_settings
@@ -37,6 +37,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             broker=broker,
             login_limiter=RateLimiter(settings.login_rate_limit_per_minute),
         )
+        from apex.api.notifier import Notifier
+        from apex.api.paper_state import PaperAccountStore, restore_trading_state
+
+        st = app.state.apex
+        st.notifier = Notifier(
+            settings.telegram_bot_token.get_secret_value() if settings.telegram_bot_token else None,
+            settings.telegram_chat_id,
+        )
+        st.notifier.start()
+        # PAPER continuity: switches and simulated account survive restarts (LIVE always starts disabled)
+        st.paper_store = PaperAccountStore(st)
+        await st.paper_store.restore()
+        await restore_trading_state(st)
         await app.state.apex.market.start(settings, app.state.apex.sessionmaker, broker)
         from apex.api.scanner import OpportunityScanner
         from apex.intel.explainer import Explainer
@@ -55,6 +68,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.apex.macro = MacroService(app.state.apex)
         if settings.macro_sync_enabled and settings.environment != "test":
             app.state.apex.macro.start()
+        from apex.api.autopilot import AutoTrader
+
+        st.autopilot = AutoTrader(st)
+        if settings.scanner_enabled:  # the autopilot only acts on scanner opportunities
+            st.autopilot.start()
         log.info(
             "startup",
             mode=broker.mode.value,
@@ -65,10 +83,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await st.autopilot.stop()
             await app.state.apex.macro.stop()
             await app.state.apex.risk.stop()
             await app.state.apex.scanner.stop()
             await app.state.apex.market.stop()
+            await st.paper_store.flush()
+            await st.notifier.stop()
             await broker.disconnect()
             await engine.dispose()
 
@@ -104,4 +125,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(backtests.router)
     app.include_router(research.router)
     app.include_router(macro.router)
+    app.include_router(paper.router)
     return app

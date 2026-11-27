@@ -106,6 +106,8 @@ class SimBroker(BrokerAdapter):
         self._orders: dict[str, OrderResult] = {}
         self.closed_trades: list[ClosedTrade] = []
         self.trade_listeners: list[Callable[[ClosedTrade], None]] = []  # e.g. persist to the trade journal
+        # (event, position view, client_order_id, open commission in commission ccy, same in account ccy)
+        self.position_listeners: list[Callable[[str, Position, str | None, Decimal, Decimal], None]] = []
         self.fx = FxConverter(
             max_age=timedelta(days=3650) if mode is TradingMode.SIMULATION else timedelta(minutes=2)
         )
@@ -183,6 +185,8 @@ class SimBroker(BrokerAdapter):
         return q.bid if p.side is Side.BUY else q.ask
 
     def _unrealized(self, p: _Pos) -> Money:
+        if p.spec.symbol not in self._quotes:  # restored after a restart, before the first quote
+            return Money(amount=Decimal(0), ccy=self.currency)
         diff = (self._close_price(p) - p.open_price) * p.side.sign
         return self._to_acc(diff * p.volume * p.spec.contract_size, p.spec.quote_ccy)
 
@@ -244,6 +248,7 @@ class SimBroker(BrokerAdapter):
             side=req.side,
             requested_volume=req.volume,
             reject_reason=reason,
+            ts=self.now(),
             **kw,
         )
         self._orders[req.client_order_id] = res
@@ -308,6 +313,7 @@ class SimBroker(BrokerAdapter):
         pos.open_commission = open_comm
         self._positions[pos.id] = pos
         self._balance = self._balance - commission
+        self._emit("opened", pos, request.client_order_id, commission.amount)
         log.info(
             "order_filled", mode=self.mode.value, side=request.side.value, volume=str(v), price=str(price)
         )
@@ -319,6 +325,49 @@ class SimBroker(BrokerAdapter):
             position_id=pos.id,
             commission=commission,
         )
+
+    def _emit(self, event: str, p: _Pos, client_order_id: str | None, comm_acc: Decimal) -> None:
+        view = self._view(p)
+        for listener in self.position_listeners:
+            try:
+                listener(event, view, client_order_id, p.open_commission, comm_acc)
+            except Exception as e:  # persistence must never break order handling
+                log.error("position_listener_failed", error=type(e).__name__)
+
+    # ------------------------------------------------------------------ restore (PAPER continuity)
+    def restore_balance(self, amount: Decimal) -> None:
+        self._balance = Money(amount=amount, ccy=self.currency)
+
+    def restore_position(
+        self,
+        position_id: UUID,
+        symbol: str,
+        side: Side,
+        volume: Decimal,
+        open_price: Decimal,
+        stop_loss: Decimal | None,
+        take_profit: Decimal | None,
+        opened_at: datetime,
+        open_commission: Decimal,
+        client_order_id: str | None = None,
+    ) -> None:
+        """Re-create a position saved before a restart (no commission charged, no listener fired)."""
+        spec = self._specs[symbol]
+        p = _Pos(spec, side, volume, open_price, stop_loss, take_profit, opened_at)
+        p.id, p.open_commission = position_id, open_commission
+        self._positions[p.id] = p
+        if client_order_id:  # keeps order idempotency across restarts
+            self._orders[client_order_id] = OrderResult(
+                order_id=uuid4(),
+                client_order_id=client_order_id,
+                status=OrderStatus.FILLED,
+                symbol=symbol,
+                side=side,
+                requested_volume=volume,
+                filled_volume=volume,
+                fill_price=open_price,
+                position_id=p.id,
+            )
 
     async def get_order_status(self, client_order_id: str) -> OrderResult | None:
         return self._orders.get(client_order_id)
@@ -337,6 +386,7 @@ class SimBroker(BrokerAdapter):
         if reason:
             raise InvalidModificationError(reason)
         p.sl, p.tp = new_sl, new_tp
+        self._emit("modified", p, None, Decimal(0))
         return self._view(p)
 
     def _close(

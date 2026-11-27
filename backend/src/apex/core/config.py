@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     macro_sync_interval_s: int = 6 * 3600
     macro_history_start: date = date(2018, 1, 1)
 
+    # Alerts (Telegram bot: free). Token and chat id come from the owner's .env, never from the chat.
+    telegram_bot_token: SecretStr | None = None
+    telegram_chat_id: str | None = None
+
+    # PAPER autopilot loop
+    autopilot_interval_s: float = 5.0
+
     log_level: str = "INFO"
     log_json: bool = True
 

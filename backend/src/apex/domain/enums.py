@@ -43,6 +43,8 @@ class CloseReason(StrEnum):
     TAKE_PROFIT = "take_profit"
     STOP_OUT = "stop_out"
     KILL_SWITCH = "kill_switch"
+    TIME_EXIT = "time_exit"
+    WEEKLY_CLOSE = "weekly_close"
 
 
 class Role(StrEnum):

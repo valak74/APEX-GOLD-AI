@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import apex
 from apex.api.deps import ReAuth, SessionDep, StateDep, require_role, verify_reauth
+from apex.api.paper_state import save_trading_state
 from apex.api.state import AppState
 from apex.core.fx import FxConverter
 from apex.db.audit import append_audit
@@ -125,6 +126,7 @@ async def kill_switch(
 ) -> KillSwitchOut:
     """Stopping must be easy: trader role, no re-auth. Trading is disabled before anything else."""
     state.trading.engage(user.email, body.reason)
+    await save_trading_state(state)
     closed: list[ClosedTrade] = []
     errors: list[str] = []
     if body.close_positions:
@@ -148,6 +150,7 @@ async def rearm(body: ReAuth, user: Admin, state: StateDep, session: SessionDep)
     state.trading.rearm()
     await append_audit(session, user.email, "kill_switch_rearmed")
     await session.commit()
+    await save_trading_state(state)
 
 
 # --------------------------------------------------------------------------- risk config
@@ -375,11 +378,14 @@ async def enable_trading(body: ReAuth, user: Admin, state: StateDep, session: Se
     state.trading.trading_enabled = True
     await append_audit(session, user.email, "trading_enabled", details={"mode": state.broker.mode.value})
     await session.commit()
+    await save_trading_state(state)
 
 
 @router.post("/system/trading/disable", status_code=204)
 async def disable_trading(user: Trader, state: StateDep, session: SessionDep) -> None:
     """Stopping is always easy: any trader, no re-authentication."""
     state.trading.trading_enabled = False
+    state.trading.autopilot_enabled = False
     await append_audit(session, user.email, "trading_disabled")
     await session.commit()
+    await save_trading_state(state)

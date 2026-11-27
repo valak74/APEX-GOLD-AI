@@ -134,10 +134,12 @@ class RiskService:
         )
 
     # ------------------------------------------------------------------ decisions
-    async def evaluate_opportunity(self, opp: dict[str, Any], actor: str) -> RiskDecision:
+    async def evaluate_opportunity(
+        self, opp: dict[str, Any], actor: str, now: datetime | None = None
+    ) -> RiskDecision:
         async with self.state.sessionmaker() as session:
             cfg, _ = await active_risk_config(session)
-            snap = await self.snapshot(session, cfg, timeframe=opp.get("timeframe", "5m"))
+            snap = await self.snapshot(session, cfg, now=now, timeframe=opp.get("timeframe", "5m"))
             prop = Proposal(
                 proposal_id=opp["id"],
                 symbol="XAUUSD",
@@ -238,6 +240,9 @@ class RiskService:
                 return False
             reason = f"drawdown maximal atteint ({m.drawdown * 100:.2f} %)"
             st.trading.engage("risk-guard", reason)
+            from apex.api.paper_state import save_trading_state
+
+            await save_trading_state(st)
             closed, errors = [], []
             try:
                 closed = await st.broker.close_all_positions(CloseReason.KILL_SWITCH)

@@ -279,3 +279,77 @@ class SymbolSpecRow(Base):
     source: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TradingStateRow(Base):
+    """Persisted trading switches (single row). The kill switch always survives a restart; the trading switch
+    and the autopilot are restored only in PAPER mode (a LIVE process always starts disabled)."""
+
+    __tablename__ = "trading_state"
+    __table_args__ = {"schema": "core"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trading_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    kill_switch_engaged: Mapped[bool] = mapped_column(Boolean, default=False)
+    kill_switch_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kill_switch_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    kill_switch_by: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    autopilot_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    autopilot_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PaperPositionRow(Base):
+    """Open simulated positions, so a PAPER account survives restarts (balance rebuilt from the journal)."""
+
+    __tablename__ = "paper_positions"
+    __table_args__ = {"schema": "trading"}
+
+    position_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(64))
+    client_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    side: Mapped[str] = mapped_column(String(4))
+    volume: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    open_price: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    stop_loss: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    take_profit: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    open_commission: Mapped[Decimal] = mapped_column(Numeric(18, 6))  # commission ccy, still to attribute
+    open_commission_acc: Mapped[Decimal] = mapped_column(Numeric(18, 6))  # already taken from the balance
+
+
+class PaperOrderRow(Base):
+    """Autopilot journal: every opportunity it considered, what it decided and why, and the outcome."""
+
+    __tablename__ = "paper_orders"
+    __table_args__ = {"schema": "trading"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    opportunity_id: Mapped[str] = mapped_column(String(64), unique=True)
+    considered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    setup: Mapped[str] = mapped_column(String(40))
+    timeframe: Mapped[str] = mapped_column(String(4))
+    direction: Mapped[str] = mapped_column(String(8))
+    quality: Mapped[int] = mapped_column(Integer)
+    signal_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # bar that triggered the idea
+    status: Mapped[str] = mapped_column(String(12), index=True)  # skipped|rejected|failed|open|closed
+    reasons: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    intended_entry: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    stop: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    target: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    client_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    position_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    volume: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    fill_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    slippage: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)  # adverse > 0
+    latency_s: Mapped[float | None] = mapped_column(nullable=True)  # bar close → fill
+    risk_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    max_hold_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    close_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    net_pnl: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    r_multiple: Mapped[float | None] = mapped_column(nullable=True)

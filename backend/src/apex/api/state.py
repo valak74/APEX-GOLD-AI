@@ -23,9 +23,12 @@ class TradingState:
     kill_switch_reason: str | None = None
     kill_switch_at: datetime | None = None
     kill_switch_by: str | None = None
+    autopilot_enabled: bool = False
+    autopilot_config: dict[str, Any] = field(default_factory=dict)
 
     def engage(self, actor: str, reason: str) -> None:
         self.trading_enabled = False
+        self.autopilot_enabled = False
         self.kill_switch_engaged = True
         self.kill_switch_reason = reason
         self.kill_switch_at = utcnow()
@@ -36,6 +39,7 @@ class TradingState:
         self.kill_switch_reason = None
         # re-arming does NOT enable trading; that is a separate explicit action
         self.trading_enabled = False
+        self.autopilot_enabled = False
 
 
 class RateLimiter:
@@ -68,3 +72,6 @@ class AppState:
     scanner: Any = None  # OpportunityScanner (set at startup)
     risk: Any = None  # RiskService (set at startup)
     macro: Any = None  # MacroService (set at startup)
+    autopilot: Any = None  # AutoTrader (set at startup)
+    paper_store: Any = None  # PaperAccountStore (set at startup)
+    notifier: Any = None  # Notifier (set at startup)
