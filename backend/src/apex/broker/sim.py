@@ -47,7 +47,7 @@ log = get_logger(__name__)
 
 
 class _Pos:
-    __slots__ = ("id", "open_price", "opened_at", "side", "sl", "spec", "tp", "volume")
+    __slots__ = ("id", "open_commission", "open_price", "opened_at", "side", "sl", "spec", "tp", "volume")
 
     def __init__(
         self,
@@ -62,6 +62,7 @@ class _Pos:
         self.id = uuid4()
         self.spec, self.side, self.volume, self.open_price = spec, side, volume, price
         self.sl, self.tp, self.opened_at = sl, tp, at
+        self.open_commission = Decimal(0)  # in spec.commission_ccy, for the remaining volume
 
 
 class SimBroker(BrokerAdapter):
@@ -161,6 +162,10 @@ class SimBroker(BrokerAdapter):
                 yield await queue.get()
         finally:
             self._subscribers.remove(entry)
+
+    def set_symbol_spec(self, spec: SymbolSpec) -> None:
+        """Replace a specification (e.g. placeholder -> broker's real one). Open positions keep theirs."""
+        self._specs[spec.symbol] = spec
 
     async def get_symbol_spec(self, symbol: str) -> SymbolSpec:
         try:
@@ -290,7 +295,8 @@ class SimBroker(BrokerAdapter):
 
         try:
             margin = self._margin(spec, v, price)
-            commission = self._to_acc(spec.commission_per_lot_per_side * v, spec.commission_ccy, "high")
+            open_comm = spec.commission_for(v, price)
+            commission = self._to_acc(open_comm, spec.commission_ccy, "high")
             info = await self.get_account_info()
         except (LookupError, RuntimeError) as e:  # FX unavailable/stale
             return self._result(request, OrderStatus.REJECTED, f"fx_error: {e}")
@@ -298,6 +304,7 @@ class SimBroker(BrokerAdapter):
             return self._result(request, OrderStatus.REJECTED, "insufficient_margin")
 
         pos = _Pos(spec, request.side, v, price, request.stop_loss, request.take_profit, self.now())
+        pos.open_commission = open_comm
         self._positions[pos.id] = pos
         self._balance = self._balance - commission
         log.info(
@@ -338,8 +345,10 @@ class SimBroker(BrokerAdapter):
         gross = self._to_acc(
             (price - p.open_price) * p.side.sign * vol * p.spec.contract_size, p.spec.quote_ccy
         )
-        comm_close = self._to_acc(p.spec.commission_per_lot_per_side * vol, p.spec.commission_ccy, "high")
-        comm_open = self._to_acc(p.spec.commission_per_lot_per_side * vol, p.spec.commission_ccy, "high")
+        comm_close = self._to_acc(p.spec.commission_for(vol, price), p.spec.commission_ccy, "high")
+        open_part = p.open_commission * vol / p.volume  # share of the commission already paid at open
+        comm_open = self._to_acc(open_part, p.spec.commission_ccy, "high")
+        p.open_commission -= open_part
         self._balance = self._balance + gross - comm_close
         if vol >= p.volume:
             del self._positions[p.id]

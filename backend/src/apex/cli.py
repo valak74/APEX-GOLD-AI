@@ -45,6 +45,19 @@ def main(argv: list[str] | None = None) -> None:
     cu = sub.add_parser("create-user", help="create a user (password prompted)")
     cu.add_argument("--email", required=True)
     cu.add_argument("--role", choices=[r.value for r in Role], default="viewer")
+    cs = sub.add_parser("ctrader-setup", help="link a cTrader DEMO account (OAuth, interactive)")
+    cs.add_argument(
+        "--redirect-uri",
+        default="http://localhost:8080/callback",
+        help="must match the Redirect URI registered on openapi.ctrader.com",
+    )
+    cc = sub.add_parser(
+        "ctrader-check", help="connect to the linked cTrader account and print spec + live quotes"
+    )
+    cc.add_argument(
+        "--account", type=int, required=True, help="internal broker account id (from ctrader-setup)"
+    )
+    cc.add_argument("--seconds", type=int, default=20)
     srv = sub.add_parser("serve", help="run the API")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -60,6 +73,14 @@ def main(argv: list[str] | None = None) -> None:
             asyncio.run(create_user(a.email.lower(), Role(a.role), pw))
         except WeakPasswordError as e:
             sys.exit(str(e))
+    elif a.cmd == "ctrader-setup":
+        from apex.broker.ctrader.setup_cli import setup
+
+        asyncio.run(setup(a.redirect_uri))
+    elif a.cmd == "ctrader-check":
+        from apex.broker.ctrader.setup_cli import check
+
+        sys.exit(asyncio.run(check(a.account, a.seconds)))
     elif a.cmd == "serve":
         import uvicorn
 

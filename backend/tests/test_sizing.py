@@ -29,7 +29,7 @@ GOLD_100 = SymbolSpec(
     volume_min=D("0.01"),
     volume_step=D("0.01"),
     volume_max=D(50),
-    commission_per_lot_per_side=D("3.0"),
+    commission_rate=D("3.0"),
     commission_ccy="USD",
 )
 
@@ -97,7 +97,7 @@ def test_one_oz_contract() -> None:
             "volume_min": D(1),
             "volume_step": D(1),
             "volume_max": D(10000),
-            "commission_per_lot_per_side": D(0),
+            "commission_rate": D(0),
         }
     )
     r = compute_position_size(inp(), spec, fx(), NOW)
@@ -207,3 +207,57 @@ def test_property_risk_never_exceeds_budget(
     else:
         assert r.rejections
         assert r.risk_amount is None
+
+
+def test_commission_models() -> None:
+    per_m = GOLD_100.model_copy(update={"commission_type": "per_million_notional", "commission_rate": D(30)})
+    # 1 lot = 100 oz * 4000 = 400k USD notional -> 30 * 0.4 = 12 USD per side
+    assert per_m.commission_for(D(1), D(4000)) == D(12)
+    pct = GOLD_100.model_copy(update={"commission_type": "pct_notional", "commission_rate": D("0.002")})
+    assert pct.commission_for(D(1), D(4000)) == D(8)  # 0.002 % of 400k
+    floor = GOLD_100.model_copy(update={"min_commission": D(5)})
+    assert floor.commission_for(D("0.01"), D(4000)) == D(5)  # 0.03 < 5 minimum
+    assert floor.commission_for(D(0), D(4000)) == D(0)
+    bad = GOLD_100.model_copy(update={"commission_type": "per_million_notional", "commission_ccy": "EUR"})
+    with pytest.raises(ValueError):
+        bad.commission_for(D(1), D(4000))
+
+
+def test_min_commission_steps_volume_down() -> None:
+    # 25 USD budget, $5 stop -> 500/lot price risk. Without minimum: 0.04 lot (20 + 0.24 comm).
+    # With a 3 USD minimum per side: 0.04 lot costs 20 + 6 = 26 > 25 -> must step down to 0.03 (15 + 6 = 21).
+    spec = GOLD_100.model_copy(update={"min_commission": D(3)})
+    r = compute_position_size(inp(), spec, fx(), NOW)
+    assert r.approved and r.volume == D("0.03")
+    assert r.risk_amount == Money.of("21", "USD")
+
+
+def test_min_commission_can_make_trade_impossible() -> None:
+    spec = GOLD_100.model_copy(update={"min_commission": D(15)})  # 30 USD round trip > 25 budget
+    r = compute_position_size(inp(), spec, fx(), NOW)
+    assert r.rejections == [SizingRejection.BELOW_MIN_VOLUME]
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    min_comm=st.decimals(min_value=D(0), max_value=D(20), places=2),
+    rate=st.decimals(min_value=D(0), max_value=D(60), places=2),
+    stop_dist=st.decimals(min_value=D("0.5"), max_value=D(50), places=2),
+    equity=st.decimals(min_value=D(1000), max_value=D(1_000_000), places=2),
+)
+def test_property_budget_holds_with_notional_commission(
+    min_comm: D, rate: D, stop_dist: D, equity: D
+) -> None:
+    spec = GOLD_100.model_copy(
+        update={
+            "commission_type": "per_million_notional",
+            "commission_rate": rate,
+            "min_commission": min_comm,
+        }
+    )
+    r = compute_position_size(
+        inp(ccy="EUR", equity=str(equity), stop_loss=D(4000) - stop_dist), spec, fx(), NOW
+    )
+    if r.approved:
+        assert r.risk_amount is not None and r.risk_budget is not None
+        assert r.risk_amount <= r.risk_budget

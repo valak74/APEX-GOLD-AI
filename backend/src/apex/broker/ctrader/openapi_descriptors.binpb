@@ -1,0 +1,1080 @@
+
+Ø
+ OpenApiCommonModelMessages.proto*I
+ProtoPayloadType
+PROTO_MESSAGE
+	ERROR_RES2
+HEARTBEAT_EVENT3*
+ProtoErrorCode
+UNKNOWN_ERROR
+UNSUPPORTED_MESSAGE
+INVALID_REQUEST
+TIMEOUT_ERROR
+ENTITY_NOT_FOUND
+CANT_ROUTE_REQUEST
+FRAME_TOO_LONG
+MARKET_CLOSED	
+CONCURRENT_MODIFICATION
+
+BLOCKED_PAYLOAD_TYPEBM
+(com.xtrader.protocol.proto.commons.modelBContainerCommonModelMessagesP†
+¨
+OpenApiCommonMessages.proto OpenApiCommonModelMessages.proto"I
+ProtoMessage
+payloadType (
+payload (
+clientMsgId (	"ã
+ProtoErrorRes1
+payloadType (2.ProtoPayloadType:	ERROR_RES
+	errorCode (	
+description (	
+maintenanceEndTimestamp ("N
+ProtoHeartbeatEvent7
+payloadType (2.ProtoPayloadType:HEARTBEAT_EVENTBB
+"com.xtrader.protocol.proto.commonsBContainerCommonMessagesP†
+°q
+OpenApiModelMessages.proto"R
+ProtoOAAsset
+assetId (
+name (	
+displayName (	
+digits ("»	
+ProtoOASymbol
+symbolId (
+digits (
+pipPosition (
+enableShortSelling (
+guaranteedStopLoss (4
+swapRollover3Days (2.ProtoOADayOfWeek:MONDAY
+swapLong (
+	swapShort (
+	maxVolume	 (
+	minVolume
+ (
+
+stepVolume (
+maxExposure ("
+schedule (2.ProtoOAInterval
+
+commission (BC
+commissionType (2.ProtoOACommissionType:USD_PER_MILLION_USD
+
+slDistance (
+
+tpDistance (
+gslDistance (
+	gslCharge (L
+distanceSetIn (2.ProtoOASymbolDistanceType:SYMBOL_DISTANCE_IN_POINTS
+minCommission (B>
+minCommissionType (2.ProtoOAMinCommissionType:CURRENCY
+minCommissionAsset (	:USD
+rolloverCommission (
+skipRolloverDays (
+scheduleTimeZone (	1
+tradingMode (2.ProtoOATradingMode:ENABLED:
+rolloverCommission3Days (2.ProtoOADayOfWeek:MONDAY>
+swapCalculationType (2.ProtoOASwapCalculationType:PIPS
+lotSize ($
+preciseTradingCommissionRate (
+preciseMinCommission  ( 
+holiday! (2.ProtoOAHoliday
+pnlConversionFeeRate" (
+
+leverageId# (
+
+swapPeriod$ (
+swapTime% (
+skipSWAPPeriods& (
+chargeSwapAtWeekends' ("•
+ProtoOALightSymbol
+symbolId (
+
+symbolName (	
+enabled (
+baseAssetId (
+quoteAssetId (
+symbolCategoryId (
+description (	"l
+ProtoOAArchivedSymbol
+symbolId (
+name (	
+utcLastUpdateTimestamp (
+description (	"G
+ProtoOASymbolCategory
+
+id (
+assetClassId (
+name (	"9
+ProtoOAInterval
+startSecond (
+	endSecond ("§
+ProtoOATrader
+ctidTraderAccountId (
+balance (
+balanceVersion (
+managerBonus (
+ibBonus (
+nonWithdrawableBonus (7
+accessRights (2.ProtoOAAccessRights:FULL_ACCESS
+depositAssetId (
+swapFree	 (
+leverageInCents
+ (F
+totalMarginCalculationType (2".ProtoOATotalMarginCalculationType
+maxLeverage (
+
+frenchRisk (B
+traderLogin (0
+accountType (2.ProtoOAAccountType:HEDGED
+
+brokerName (	
+registrationTimestamp (
+isLimitedRisk (q
+$limitedRiskMarginCalculationStrategy (2,.ProtoOALimitedRiskMarginCalculationStrategy:ACCORDING_TO_LEVERAGE
+moneyDigits ("ƒ
+ProtoOAPosition
+
+positionId ($
+	tradeData (2.ProtoOATradeData.
+positionStatus (2.ProtoOAPositionStatus
+swap (
+price (
+stopLoss (
+
+takeProfit (
+utcLastUpdateTimestamp (
+
+commission	 (
+
+marginRate
+ (
+mirroringCommission (
+guaranteedStopLoss (
+
+usedMargin (@
+stopLossTriggerMethod (2.ProtoOAOrderTriggerMethod:TRADE
+moneyDigits (
+trailingStopLoss ("≠
+ProtoOATradeData
+symbolId (
+volume ($
+	tradeSide (2.ProtoOATradeSide
+openTimestamp (
+label (	
+guaranteedStopLoss (
+comment (	"•
+ProtoOAOrder
+orderId ($
+	tradeData (2.ProtoOATradeData$
+	orderType (2.ProtoOAOrderType(
+orderStatus (2.ProtoOAOrderStatus
+expirationTimestamp (
+executionPrice (
+executedVolume (
+utcLastUpdateTimestamp	 (
+baseSlippagePrice
+ (
+slippageInPoints (
+closingOrder (
+
+limitPrice (
+	stopPrice (
+stopLoss (
+
+takeProfit (
+clientOrderId (	=
+timeInForce (2.ProtoOATimeInForce:IMMEDIATE_OR_CANCEL
+
+positionId (
+relativeStopLoss (
+relativeTakeProfit (
+	isStopOut (
+trailingStopLoss (<
+stopTriggerMethod (2.ProtoOAOrderTriggerMethod:TRADE"ô
+ProtoOABonusDepositWithdraw.
+operationType (2.ProtoOAChangeBonusType
+bonusHistoryId (
+managerBonus (
+managerDelta (
+ibBonus (
+ibDelta (
+changeBonusTimestamp (
+externalNote (	
+introducingBrokerId	 (
+moneyDigits
+ ("˜
+ProtoOADepositWithdraw0
+operationType (2.ProtoOAChangeBalanceType
+balanceHistoryId (
+balance (
+delta (
+changeBalanceTimestamp (
+externalNote (	
+balanceVersion (
+equity (
+moneyDigits	 ("Õ
+ProtoOADeal
+dealId (
+orderId (
+
+positionId (
+volume (
+filledVolume (
+symbolId (
+createTimestamp (
+executionTimestamp (
+utcLastUpdateTimestamp	 (
+executionPrice
+ ($
+	tradeSide (2.ProtoOATradeSide&
+
+dealStatus (2.ProtoOADealStatus
+
+marginRate (
+
+commission (
+baseToUsdConversionRate (8
+closePositionDetail (2.ProtoOAClosePositionDetail
+moneyDigits ("˚
+ProtoOAClosePositionDetail
+
+entryPrice (
+grossProfit (
+swap (
+
+commission (
+balance ($
+quoteToDepositConversionRate (
+closedVolume (
+balanceVersion (
+moneyDigits	 (
+pnlConversionFee
+ ("≥
+ProtoOATrendbar
+volume (*
+period (2.ProtoOATrendbarPeriod:M1
+low (
+	deltaOpen (
+
+deltaClose (
+	deltaHigh (
+utcTimestampInMinutes	 ("N
+ProtoOAExpectedMargin
+volume (
+	buyMargin (
+
+sellMargin ("2
+ProtoOATickData
+	timestamp (
+tick ("$
+ProtoOACtidProfile
+userId ("¢
+ProtoOACtidTraderAccount
+ctidTraderAccountId (
+isLive (
+traderLogin ( 
+lastClosingDealTimestamp ("
+lastBalanceUpdateTimestamp ("-
+ProtoOAAssetClass
+
+id (
+name (	"G
+ProtoOADepthQuote
+
+id (
+size (
+bid (
+ask ("É
+ProtoOAMarginCall0
+marginCallType (2.ProtoOANotificationType
+marginLevelThreshold (
+utcLastUpdateTimestamp ("≤
+ProtoOAHoliday
+	holidayId (
+name (	
+description (	
+scheduleTimeZone (	
+holidayDate (
+isRecurring (
+startSecond (
+	endSecond ("X
+ProtoOADynamicLeverage
+
+leverageId (*
+tiers (2.ProtoOADynamicLeverageTier">
+ProtoOADynamicLeverageTier
+volume (
+leverage ("g
+ProtoOADealOffset
+dealId (
+volume (
+executionTimestamp (
+executionPrice ("h
+ProtoOAPositionUnrealizedPnL
+
+positionId (
+grossUnrealizedPnL (
+netUnrealizedPnL (*±
+ProtoOAPayloadType"
+PROTO_OA_APPLICATION_AUTH_REQ¥"
+PROTO_OA_APPLICATION_AUTH_RESµ
+PROTO_OA_ACCOUNT_AUTH_REQ∂
+PROTO_OA_ACCOUNT_AUTH_RES∑
+PROTO_OA_VERSION_REQ∏
+PROTO_OA_VERSION_RESπ
+PROTO_OA_NEW_ORDER_REQ∫'
+"PROTO_OA_TRAILING_SL_CHANGED_EVENTª
+PROTO_OA_CANCEL_ORDER_REQº
+PROTO_OA_AMEND_ORDER_REQΩ%
+ PROTO_OA_AMEND_POSITION_SLTP_REQæ 
+PROTO_OA_CLOSE_POSITION_REQø
+PROTO_OA_ASSET_LIST_REQ¿
+PROTO_OA_ASSET_LIST_RES¡
+PROTO_OA_SYMBOLS_LIST_REQ¬
+PROTO_OA_SYMBOLS_LIST_RES√
+PROTO_OA_SYMBOL_BY_ID_REQƒ
+PROTO_OA_SYMBOL_BY_ID_RES≈(
+#PROTO_OA_SYMBOLS_FOR_CONVERSION_REQ∆(
+#PROTO_OA_SYMBOLS_FOR_CONVERSION_RES«"
+PROTO_OA_SYMBOL_CHANGED_EVENT»
+PROTO_OA_TRADER_REQ…
+PROTO_OA_TRADER_RES !
+PROTO_OA_TRADER_UPDATE_EVENTÀ
+PROTO_OA_RECONCILE_REQÃ
+PROTO_OA_RECONCILE_RESÕ
+PROTO_OA_EXECUTION_EVENTŒ!
+PROTO_OA_SUBSCRIBE_SPOTS_REQœ!
+PROTO_OA_SUBSCRIBE_SPOTS_RES–#
+PROTO_OA_UNSUBSCRIBE_SPOTS_REQ—#
+PROTO_OA_UNSUBSCRIBE_SPOTS_RES“
+PROTO_OA_SPOT_EVENT”
+PROTO_OA_ORDER_ERROR_EVENT‘
+PROTO_OA_DEAL_LIST_REQ’
+PROTO_OA_DEAL_LIST_RES÷)
+$PROTO_OA_SUBSCRIBE_LIVE_TRENDBAR_REQ◊+
+&PROTO_OA_UNSUBSCRIBE_LIVE_TRENDBAR_REQÿ
+PROTO_OA_GET_TRENDBARS_REQŸ
+PROTO_OA_GET_TRENDBARS_RES⁄!
+PROTO_OA_EXPECTED_MARGIN_REQ€!
+PROTO_OA_EXPECTED_MARGIN_RES‹"
+PROTO_OA_MARGIN_CHANGED_EVENT›
+PROTO_OA_ERROR_RESﬁ(
+#PROTO_OA_CASH_FLOW_HISTORY_LIST_REQﬂ(
+#PROTO_OA_CASH_FLOW_HISTORY_LIST_RES‡
+PROTO_OA_GET_TICKDATA_REQ·
+PROTO_OA_GET_TICKDATA_RES‚.
+)PROTO_OA_ACCOUNTS_TOKEN_INVALIDATED_EVENT„%
+ PROTO_OA_CLIENT_DISCONNECT_EVENT‰.
+)PROTO_OA_GET_ACCOUNTS_BY_ACCESS_TOKEN_REQÂ.
+)PROTO_OA_GET_ACCOUNTS_BY_ACCESS_TOKEN_RESÊ+
+&PROTO_OA_GET_CTID_PROFILE_BY_TOKEN_REQÁ+
+&PROTO_OA_GET_CTID_PROFILE_BY_TOKEN_RESË"
+PROTO_OA_ASSET_CLASS_LIST_REQÈ"
+PROTO_OA_ASSET_CLASS_LIST_RESÍ
+PROTO_OA_DEPTH_EVENTÎ(
+#PROTO_OA_SUBSCRIBE_DEPTH_QUOTES_REQÏ(
+#PROTO_OA_SUBSCRIBE_DEPTH_QUOTES_RESÌ*
+%PROTO_OA_UNSUBSCRIBE_DEPTH_QUOTES_REQÓ*
+%PROTO_OA_UNSUBSCRIBE_DEPTH_QUOTES_RESÔ!
+PROTO_OA_SYMBOL_CATEGORY_REQ!
+PROTO_OA_SYMBOL_CATEGORY_RESÒ 
+PROTO_OA_ACCOUNT_LOGOUT_REQÚ 
+PROTO_OA_ACCOUNT_LOGOUT_RESÛ&
+!PROTO_OA_ACCOUNT_DISCONNECT_EVENTÙ)
+$PROTO_OA_SUBSCRIBE_LIVE_TRENDBAR_RESı+
+&PROTO_OA_UNSUBSCRIBE_LIVE_TRENDBAR_RESˆ"
+PROTO_OA_MARGIN_CALL_LIST_REQ˜"
+PROTO_OA_MARGIN_CALL_LIST_RES¯$
+PROTO_OA_MARGIN_CALL_UPDATE_REQ˘$
+PROTO_OA_MARGIN_CALL_UPDATE_RES˙&
+!PROTO_OA_MARGIN_CALL_UPDATE_EVENT˚'
+"PROTO_OA_MARGIN_CALL_TRIGGER_EVENT¸
+PROTO_OA_REFRESH_TOKEN_REQ˝
+PROTO_OA_REFRESH_TOKEN_RES˛
+PROTO_OA_ORDER_LIST_REQˇ
+PROTO_OA_ORDER_LIST_RESÄ&
+!PROTO_OA_GET_DYNAMIC_LEVERAGE_REQÅ&
+!PROTO_OA_GET_DYNAMIC_LEVERAGE_RESÇ*
+%PROTO_OA_DEAL_LIST_BY_POSITION_ID_REQÉ*
+%PROTO_OA_DEAL_LIST_BY_POSITION_ID_RESÑ
+PROTO_OA_ORDER_DETAILS_REQÖ
+PROTO_OA_ORDER_DETAILS_RESÜ+
+&PROTO_OA_ORDER_LIST_BY_POSITION_ID_REQá+
+&PROTO_OA_ORDER_LIST_BY_POSITION_ID_RESà"
+PROTO_OA_DEAL_OFFSET_LIST_REQâ"
+PROTO_OA_DEAL_OFFSET_LIST_RESä-
+(PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQã-
+(PROTO_OA_GET_POSITION_UNREALIZED_PNL_RESå*x
+ProtoOADayOfWeek
+NONE 
+
+MONDAY
+TUESDAY
+	WEDNESDAY
+THURSDAY
+
+FRIDAY
+SATURDAY
+
+SUNDAY*q
+ProtoOACommissionType
+USD_PER_MILLION_USD
+USD_PER_LOT
+PERCENTAGE_OF_VALUE
+QUOTE_CCY_PER_LOT*]
+ProtoOASymbolDistanceType
+SYMBOL_DISTANCE_IN_POINTS!
+SYMBOL_DISTANCE_IN_PERCENTAGE*<
+ProtoOAMinCommissionType
+CURRENCY
+QUOTE_CURRENCY*Ö
+ProtoOATradingMode
+ENABLED '
+#DISABLED_WITHOUT_PENDINGS_EXECUTION$
+ DISABLED_WITH_PENDINGS_EXECUTION
+CLOSE_ONLY_MODE*6
+ProtoOASwapCalculationType
+PIPS 
+
+PERCENTAGE*T
+ProtoOAAccessRights
+FULL_ACCESS 
+
+CLOSE_ONLY
+
+NO_TRADING
+NO_LOGIN*>
+!ProtoOATotalMarginCalculationType
+MAX 
+SUM
+NET*@
+ProtoOAAccountType
+
+HEDGED 
+
+NETTED
+SPREAD_BETTING*Ö
+ProtoOAPositionStatus
+POSITION_STATUS_OPEN
+POSITION_STATUS_CLOSED
+POSITION_STATUS_CREATED
+POSITION_STATUS_ERROR*%
+ProtoOATradeSide
+BUY
+SELL*p
+ProtoOAOrderType
+
+MARKET	
+LIMIT
+STOP
+STOP_LOSS_TAKE_PROFIT
+MARKET_RANGE
+
+STOP_LIMIT*}
+ProtoOATimeInForce
+GOOD_TILL_DATE
+GOOD_TILL_CANCEL
+IMMEDIATE_OR_CANCEL
+FILL_OR_KILL
+MARKET_ON_OPEN*ô
+ProtoOAOrderStatus
+ORDER_STATUS_ACCEPTED
+ORDER_STATUS_FILLED
+ORDER_STATUS_REJECTED
+ORDER_STATUS_EXPIRED
+ORDER_STATUS_CANCELLED*[
+ProtoOAOrderTriggerMethod	
+TRADE
+OPPOSITE
+DOUBLE_TRADE
+DOUBLE_OPPOSITE*˚
+ProtoOAExecutionType
+ORDER_ACCEPTED
+ORDER_FILLED
+ORDER_REPLACED
+ORDER_CANCELLED
+ORDER_EXPIRED
+ORDER_REJECTED
+ORDER_CANCEL_REJECTED
+SWAP	
+DEPOSIT_WITHDRAW
+
+ORDER_PARTIAL_FILL
+BONUS_DEPOSIT_WITHDRAW*?
+ProtoOAChangeBonusType
+BONUS_DEPOSIT 
+BONUS_WITHDRAW*∏
+
+ProtoOAChangeBalanceType
+BALANCE_DEPOSIT 
+BALANCE_WITHDRAW-
+)BALANCE_DEPOSIT_STRATEGY_COMMISSION_INNER.
+*BALANCE_WITHDRAW_STRATEGY_COMMISSION_INNER"
+BALANCE_DEPOSIT_IB_COMMISSIONS)
+%BALANCE_WITHDRAW_IB_SHARED_PERCENTAGE4
+0BALANCE_DEPOSIT_IB_SHARED_PERCENTAGE_FROM_SUB_IB4
+0BALANCE_DEPOSIT_IB_SHARED_PERCENTAGE_FROM_BROKER
+BALANCE_DEPOSIT_REBATE	
+BALANCE_WITHDRAW_REBATE
+-
+)BALANCE_DEPOSIT_STRATEGY_COMMISSION_OUTER.
+*BALANCE_WITHDRAW_STRATEGY_COMMISSION_OUTER'
+#BALANCE_WITHDRAW_BONUS_COMPENSATION3
+/BALANCE_WITHDRAW_IB_SHARED_PERCENTAGE_TO_BROKER
+BALANCE_DEPOSIT_DIVIDENDS
+BALANCE_WITHDRAW_DIVIDENDS
+BALANCE_WITHDRAW_GSL_CHARGE
+BALANCE_WITHDRAW_ROLLOVER)
+%BALANCE_DEPOSIT_NONWITHDRAWABLE_BONUS*
+&BALANCE_WITHDRAW_NONWITHDRAWABLE_BONUS
+BALANCE_DEPOSIT_SWAP
+BALANCE_WITHDRAW_SWAP"
+BALANCE_DEPOSIT_MANAGEMENT_FEE#
+BALANCE_WITHDRAW_MANAGEMENT_FEE#
+BALANCE_DEPOSIT_PERFORMANCE_FEE#
+BALANCE_WITHDRAW_FOR_SUBACCOUNT!
+BALANCE_DEPOSIT_TO_SUBACCOUNT$
+ BALANCE_WITHDRAW_FROM_SUBACCOUNT #
+BALANCE_DEPOSIT_FROM_SUBACCOUNT!
+BALANCE_WITHDRAW_COPY_FEE"#
+BALANCE_WITHDRAW_INACTIVITY_FEE#
+BALANCE_DEPOSIT_TRANSFER$
+BALANCE_WITHDRAW_TRANSFER%#
+BALANCE_DEPOSIT_CONVERTED_BONUS&/
++BALANCE_DEPOSIT_NEGATIVE_BALANCE_PROTECTION'*s
+ProtoOADealStatus
+
+FILLED
+PARTIALLY_FILLED
+REJECTED
+INTERNALLY_REJECTED	
+ERROR
+
+MISSED*å
+ProtoOATrendbarPeriod
+M1
+M2
+M3
+M4
+M5
+M10
+M15
+M30
+H1	
+H4
+
+H12
+D1
+W1
+MN1*$
+ProtoOAQuoteType
+BID
+ASK*?
+ProtoOAClientPermissionScope
+
+SCOPE_VIEW 
+SCOPE_TRADE*s
+ProtoOANotificationType
+MARGIN_LEVEL_THRESHOLD_1=
+MARGIN_LEVEL_THRESHOLD_2>
+MARGIN_LEVEL_THRESHOLD_3?*ﬁ
+ProtoOAErrorCode
+OA_AUTH_TOKEN_EXPIRED
+ACCOUNT_NOT_AUTHORIZED
+ALREADY_LOGGED_IN
+CH_CLIENT_AUTH_FAILUREe
+CH_CLIENT_NOT_AUTHENTICATEDf#
+CH_CLIENT_ALREADY_AUTHENTICATEDg
+CH_ACCESS_TOKEN_INVALIDh
+CH_SERVER_NOT_REACHABLEi$
+ CH_CTID_TRADER_ACCOUNT_NOT_FOUNDj
+CH_OA_CLIENT_NOT_FOUNDk
+REQUEST_FREQUENCY_EXCEEDEDl
+SERVER_IS_UNDER_MAINTENANCEm
+CHANNEL_IS_BLOCKEDn
+CONNECTIONS_LIMIT_EXCEEDEDC
+WORSE_GSL_NOT_ALLOWEDD
+SYMBOL_HAS_HOLIDAYE
+NOT_SUBSCRIBED_TO_SPOTSp
+ALREADY_SUBSCRIBEDq
+SYMBOL_NOT_FOUNDr
+UNKNOWN_SYMBOLs
+INCORRECT_BOUNDARIES#
+	NO_QUOTESu
+NOT_ENOUGH_MONEYv
+MAX_EXPOSURE_REACHEDw
+POSITION_NOT_FOUNDx
+ORDER_NOT_FOUNDy
+POSITION_NOT_OPENz
+POSITION_LOCKED{
+TOO_MANY_POSITIONS|
+TRADING_BAD_VOLUME}
+TRADING_BAD_STOPS~
+TRADING_BAD_PRICES
+TRADING_BAD_STAKEÄ&
+!PROTECTION_IS_TOO_CLOSE_TO_MARKETÅ 
+TRADING_BAD_EXPIRATION_DATEÇ
+PENDING_EXECUTIONÉ
+TRADING_DISABLEDÑ
+TRADING_NOT_ALLOWEDÖ
+UNABLE_TO_CANCEL_ORDERÜ
+UNABLE_TO_AMEND_ORDERá
+SHORT_SELLING_NOT_ALLOWEDà*Å
++ProtoOALimitedRiskMarginCalculationStrategy
+ACCORDING_TO_LEVERAGE 
+ACCORDING_TO_GSL!
+ACCORDING_TO_GSL_AND_LEVERAGEBM
+%com.xtrader.protocol.openapi.v2.modelBContainerOpenApiV2ModelMessagesP†
+Ô}
+OpenApiMessages.protoOpenApiModelMessages.proto"å
+ProtoOAApplicationAuthReqG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_APPLICATION_AUTH_REQ
+clientId (	
+clientSecret (	"d
+ProtoOAApplicationAuthResG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_APPLICATION_AUTH_RES"é
+ProtoOAAccountAuthReqC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ACCOUNT_AUTH_REQ
+ctidTraderAccountId (
+accessToken (	"y
+ProtoOAAccountAuthResC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ACCOUNT_AUTH_RES
+ctidTraderAccountId ("µ
+ProtoOAErrorRes<
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ERROR_RES
+ctidTraderAccountId (
+	errorCode (	
+description (	
+maintenanceEndTimestamp ("z
+ProtoOAClientDisconnectEventJ
+payloadType (2.ProtoOAPayloadType: PROTO_OA_CLIENT_DISCONNECT_EVENT
+reason (	"©
+$ProtoOAAccountsTokenInvalidatedEventS
+payloadType (2.ProtoOAPayloadType:)PROTO_OA_ACCOUNTS_TOKEN_INVALIDATED_EVENT
+ctidTraderAccountIds (
+reason (	"S
+ProtoOAVersionReq>
+payloadType (2.ProtoOAPayloadType:PROTO_OA_VERSION_REQ"d
+ProtoOAVersionRes>
+payloadType (2.ProtoOAPayloadType:PROTO_OA_VERSION_RES
+version (	"±
+ProtoOANewOrderReq@
+payloadType (2.ProtoOAPayloadType:PROTO_OA_NEW_ORDER_REQ
+ctidTraderAccountId (
+symbolId ($
+	orderType (2.ProtoOAOrderType$
+	tradeSide (2.ProtoOATradeSide
+volume (
+
+limitPrice (
+	stopPrice (:
+timeInForce	 (2.ProtoOATimeInForce:GOOD_TILL_CANCEL
+expirationTimestamp
+ (
+stopLoss (
+
+takeProfit (
+comment (	
+baseSlippagePrice (
+slippageInPoints (
+label (	
+
+positionId (
+clientOrderId (	
+relativeStopLoss (
+relativeTakeProfit (
+guaranteedStopLoss (
+trailingStopLoss (<
+stopTriggerMethod (2.ProtoOAOrderTriggerMethod:TRADE"ú
+ProtoOAExecutionEventB
+payloadType (2.ProtoOAPayloadType:PROTO_OA_EXECUTION_EVENT
+ctidTraderAccountId (,
+executionType (2.ProtoOAExecutionType"
+position (2.ProtoOAPosition
+order (2.ProtoOAOrder
+deal (2.ProtoOADeal:
+bonusDepositWithdraw (2.ProtoOABonusDepositWithdraw0
+depositWithdraw (2.ProtoOADepositWithdraw
+	errorCode	 (	
+isServerEvent
+ ("ä
+ProtoOACancelOrderReqC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_CANCEL_ORDER_REQ
+ctidTraderAccountId (
+orderId ("∆
+ProtoOAAmendOrderReqB
+payloadType (2.ProtoOAPayloadType:PROTO_OA_AMEND_ORDER_REQ
+ctidTraderAccountId (
+orderId (
+volume (
+
+limitPrice (
+	stopPrice (
+expirationTimestamp (
+stopLoss (
+
+takeProfit	 (
+slippageInPoints
+ (
+relativeStopLoss (
+relativeTakeProfit (
+guaranteedStopLoss (
+trailingStopLoss (<
+stopTriggerMethod (2.ProtoOAOrderTriggerMethod:TRADE"∏
+ProtoOAAmendPositionSLTPReqJ
+payloadType (2.ProtoOAPayloadType: PROTO_OA_AMEND_POSITION_SLTP_REQ
+ctidTraderAccountId (
+
+positionId (
+stopLoss (
+
+takeProfit (
+guaranteedStopLoss (
+trailingStopLoss (@
+stopLossTriggerMethod	 (2.ProtoOAOrderTriggerMethod:TRADE"°
+ProtoOAClosePositionReqE
+payloadType (2.ProtoOAPayloadType:PROTO_OA_CLOSE_POSITION_REQ
+ctidTraderAccountId (
+
+positionId (
+volume ("‚
+ProtoOATrailingSLChangedEventL
+payloadType (2.ProtoOAPayloadType:"PROTO_OA_TRAILING_SL_CHANGED_EVENT
+ctidTraderAccountId (
+
+positionId (
+orderId (
+	stopPrice (
+utcLastUpdateTimestamp ("u
+ProtoOAAssetListReqA
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ASSET_LIST_REQ
+ctidTraderAccountId ("ì
+ProtoOAAssetListResA
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ASSET_LIST_RES
+ctidTraderAccountId (
+asset (2.ProtoOAAsset"†
+ProtoOASymbolsListReqC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOLS_LIST_REQ
+ctidTraderAccountId (%
+includeArchivedSymbols (:false"Œ
+ProtoOASymbolsListResC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOLS_LIST_RES
+ctidTraderAccountId (#
+symbol (2.ProtoOALightSymbol.
+archivedSymbol (2.ProtoOAArchivedSymbol"ä
+ProtoOASymbolByIdReqC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOL_BY_ID_REQ
+ctidTraderAccountId (
+symbolId ("»
+ProtoOASymbolByIdResC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOL_BY_ID_RES
+ctidTraderAccountId (
+symbol (2.ProtoOASymbol.
+archivedSymbol (2.ProtoOAArchivedSymbol"∑
+ProtoOASymbolsForConversionReqM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_SYMBOLS_FOR_CONVERSION_REQ
+ctidTraderAccountId (
+firstAssetId (
+lastAssetId ("±
+ProtoOASymbolsForConversionResM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_SYMBOLS_FOR_CONVERSION_RES
+ctidTraderAccountId (#
+symbol (2.ProtoOALightSymbol"ì
+ProtoOASymbolChangedEventG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOL_CHANGED_EVENT
+ctidTraderAccountId (
+symbolId ("Ä
+ProtoOAAssetClassListReqG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ASSET_CLASS_LIST_REQ
+ctidTraderAccountId ("®
+ProtoOAAssetClassListResG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ASSET_CLASS_LIST_RES
+ctidTraderAccountId (&
+
+assetClass (2.ProtoOAAssetClass"n
+ProtoOATraderReq=
+payloadType (2.ProtoOAPayloadType:PROTO_OA_TRADER_REQ
+ctidTraderAccountId ("é
+ProtoOATraderRes=
+payloadType (2.ProtoOAPayloadType:PROTO_OA_TRADER_RES
+ctidTraderAccountId (
+trader (2.ProtoOATrader"†
+ProtoOATraderUpdatedEventF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_TRADER_UPDATE_EVENT
+ctidTraderAccountId (
+trader (2.ProtoOATrader"t
+ProtoOAReconcileReq@
+payloadType (2.ProtoOAPayloadType:PROTO_OA_RECONCILE_REQ
+ctidTraderAccountId ("∂
+ProtoOAReconcileRes@
+payloadType (2.ProtoOAPayloadType:PROTO_OA_RECONCILE_RES
+ctidTraderAccountId ("
+position (2.ProtoOAPosition
+order (2.ProtoOAOrder"»
+ProtoOAOrderErrorEventD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ORDER_ERROR_EVENT
+ctidTraderAccountId (
+	errorCode (	
+orderId (
+
+positionId (
+description (	"∞
+ProtoOADealListReq@
+payloadType (2.ProtoOAPayloadType:PROTO_OA_DEAL_LIST_REQ
+ctidTraderAccountId (
+fromTimestamp (
+toTimestamp (
+maxRows ("†
+ProtoOADealListRes@
+payloadType (2.ProtoOAPayloadType:PROTO_OA_DEAL_LIST_RES
+ctidTraderAccountId (
+deal (2.ProtoOADeal
+hasMore ("°
+ProtoOAOrderListReqA
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ORDER_LIST_REQ
+ctidTraderAccountId (
+fromTimestamp (
+toTimestamp ("§
+ProtoOAOrderListResA
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ORDER_LIST_RES
+ctidTraderAccountId (
+order (2.ProtoOAOrder
+hasMore ("°
+ProtoOAExpectedMarginReqF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_EXPECTED_MARGIN_REQ
+ctidTraderAccountId (
+symbolId (
+volume ("º
+ProtoOAExpectedMarginResF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_EXPECTED_MARGIN_RES
+ctidTraderAccountId (&
+margin (2.ProtoOAExpectedMargin
+moneyDigits ("æ
+ProtoOAMarginChangedEventG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_MARGIN_CHANGED_EVENT
+ctidTraderAccountId (
+
+positionId (
+
+usedMargin (
+moneyDigits ("∑
+ProtoOACashFlowHistoryListReqM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_CASH_FLOW_HISTORY_LIST_REQ
+ctidTraderAccountId (
+fromTimestamp (
+toTimestamp ("Ω
+ProtoOACashFlowHistoryListResM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_CASH_FLOW_HISTORY_LIST_RES
+ctidTraderAccountId (0
+depositWithdraw (2.ProtoOADepositWithdraw"ë
+%ProtoOAGetAccountListByAccessTokenReqS
+payloadType (2.ProtoOAPayloadType:)PROTO_OA_GET_ACCOUNTS_BY_ACCESS_TOKEN_REQ
+accessToken (	"ˇ
+%ProtoOAGetAccountListByAccessTokenResS
+payloadType (2.ProtoOAPayloadType:)PROTO_OA_GET_ACCOUNTS_BY_ACCESS_TOKEN_RES
+accessToken (	6
+permissionScope (2.ProtoOAClientPermissionScope4
+ctidTraderAccount (2.ProtoOACtidTraderAccount"t
+ProtoOARefreshTokenReqD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_REFRESH_TOKEN_REQ
+refreshToken (	"Ø
+ProtoOARefreshTokenResD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_REFRESH_TOKEN_RES
+accessToken (	
+	tokenType (	
+	expiresIn (
+refreshToken (	"≥
+ProtoOASubscribeSpotsReqF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SUBSCRIBE_SPOTS_REQ
+ctidTraderAccountId (
+symbolId ( 
+subscribeToSpotTimestamp ("
+ProtoOASubscribeSpotsResF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SUBSCRIBE_SPOTS_RES
+ctidTraderAccountId ("ï
+ProtoOAUnsubscribeSpotsReqH
+payloadType (2.ProtoOAPayloadType:PROTO_OA_UNSUBSCRIBE_SPOTS_REQ
+ctidTraderAccountId (
+symbolId ("É
+ProtoOAUnsubscribeSpotsResH
+payloadType (2.ProtoOAPayloadType:PROTO_OA_UNSUBSCRIBE_SPOTS_RES
+ctidTraderAccountId ("Á
+ProtoOASpotEvent=
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SPOT_EVENT
+ctidTraderAccountId (
+symbolId (
+bid (
+ask ("
+trendbar (2.ProtoOATrendbar
+sessionClose (
+	timestamp ("»
+ProtoOASubscribeLiveTrendbarReqN
+payloadType (2.ProtoOAPayloadType:$PROTO_OA_SUBSCRIBE_LIVE_TRENDBAR_REQ
+ctidTraderAccountId (&
+period (2.ProtoOATrendbarPeriod
+symbolId ("é
+ProtoOASubscribeLiveTrendbarResN
+payloadType (2.ProtoOAPayloadType:$PROTO_OA_SUBSCRIBE_LIVE_TRENDBAR_RES
+ctidTraderAccountId ("Ã
+!ProtoOAUnsubscribeLiveTrendbarReqP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_UNSUBSCRIBE_LIVE_TRENDBAR_REQ
+ctidTraderAccountId (&
+period (2.ProtoOATrendbarPeriod
+symbolId ("í
+!ProtoOAUnsubscribeLiveTrendbarResP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_UNSUBSCRIBE_LIVE_TRENDBAR_RES
+ctidTraderAccountId ("
+ProtoOAGetTrendbarsReqD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_GET_TRENDBARS_REQ
+ctidTraderAccountId (
+fromTimestamp (
+toTimestamp (&
+period (2.ProtoOATrendbarPeriod
+symbolId (
+count ("Ï
+ProtoOAGetTrendbarsResD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_GET_TRENDBARS_RES
+ctidTraderAccountId (&
+period (2.ProtoOATrendbarPeriod
+	timestamp ("
+trendbar (2.ProtoOATrendbar
+symbolId ("ÿ
+ProtoOAGetTickDataReqC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_GET_TICKDATA_REQ
+ctidTraderAccountId (
+symbolId (
+type (2.ProtoOAQuoteType
+fromTimestamp (
+toTimestamp ("Æ
+ProtoOAGetTickDataResC
+payloadType (2.ProtoOAPayloadType:PROTO_OA_GET_TICKDATA_RES
+ctidTraderAccountId ("
+tickData (2.ProtoOATickData
+hasMore ("à
+ProtoOAGetCtidProfileByTokenReqP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_GET_CTID_PROFILE_BY_TOKEN_REQ
+accessToken (	"ô
+ProtoOAGetCtidProfileByTokenResP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_GET_CTID_PROFILE_BY_TOKEN_RES$
+profile (2.ProtoOACtidProfile"ƒ
+ProtoOADepthEvent>
+payloadType (2.ProtoOAPayloadType:PROTO_OA_DEPTH_EVENT
+ctidTraderAccountId (
+symbolId (%
+	newQuotes (2.ProtoOADepthQuote
+deletedQuotes (B"û
+ProtoOASubscribeDepthQuotesReqM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_SUBSCRIBE_DEPTH_QUOTES_REQ
+ctidTraderAccountId (
+symbolId ("å
+ProtoOASubscribeDepthQuotesResM
+payloadType (2.ProtoOAPayloadType:#PROTO_OA_SUBSCRIBE_DEPTH_QUOTES_RES
+ctidTraderAccountId ("¢
+ ProtoOAUnsubscribeDepthQuotesReqO
+payloadType (2.ProtoOAPayloadType:%PROTO_OA_UNSUBSCRIBE_DEPTH_QUOTES_REQ
+ctidTraderAccountId (
+symbolId ("ê
+ ProtoOAUnsubscribeDepthQuotesResO
+payloadType (2.ProtoOAPayloadType:%PROTO_OA_UNSUBSCRIBE_DEPTH_QUOTES_RES
+ctidTraderAccountId ("É
+ProtoOASymbolCategoryListReqF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOL_CATEGORY_REQ
+ctidTraderAccountId ("≥
+ProtoOASymbolCategoryListResF
+payloadType (2.ProtoOAPayloadType:PROTO_OA_SYMBOL_CATEGORY_RES
+ctidTraderAccountId (.
+symbolCategory (2.ProtoOASymbolCategory"}
+ProtoOAAccountLogoutReqE
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ACCOUNT_LOGOUT_REQ
+ctidTraderAccountId ("}
+ProtoOAAccountLogoutResE
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ACCOUNT_LOGOUT_RES
+ctidTraderAccountId ("â
+ProtoOAAccountDisconnectEventK
+payloadType (2.ProtoOAPayloadType:!PROTO_OA_ACCOUNT_DISCONNECT_EVENT
+ctidTraderAccountId ("Ä
+ProtoOAMarginCallListReqG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_MARGIN_CALL_LIST_REQ
+ctidTraderAccountId ("ã
+ProtoOAMarginCallListResG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_MARGIN_CALL_LIST_RES&
+
+marginCall (2.ProtoOAMarginCall"¨
+ProtoOAMarginCallUpdateReqI
+payloadType (2.ProtoOAPayloadType:PROTO_OA_MARGIN_CALL_UPDATE_REQ
+ctidTraderAccountId (&
+
+marginCall (2.ProtoOAMarginCall"g
+ProtoOAMarginCallUpdateResI
+payloadType (2.ProtoOAPayloadType:PROTO_OA_MARGIN_CALL_UPDATE_RES"∞
+ProtoOAMarginCallUpdateEventK
+payloadType (2.ProtoOAPayloadType:!PROTO_OA_MARGIN_CALL_UPDATE_EVENT
+ctidTraderAccountId (&
+
+marginCall (2.ProtoOAMarginCall"≤
+ProtoOAMarginCallTriggerEventL
+payloadType (2.ProtoOAPayloadType:"PROTO_OA_MARGIN_CALL_TRIGGER_EVENT
+ctidTraderAccountId (&
+
+marginCall (2.ProtoOAMarginCall"†
+ ProtoOAGetDynamicLeverageByIDReqK
+payloadType (2.ProtoOAPayloadType:!PROTO_OA_GET_DYNAMIC_LEVERAGE_REQ
+ctidTraderAccountId (
+
+leverageId ("∑
+ ProtoOAGetDynamicLeverageByIDResK
+payloadType (2.ProtoOAPayloadType:!PROTO_OA_GET_DYNAMIC_LEVERAGE_RES
+ctidTraderAccountId ()
+leverage (2.ProtoOADynamicLeverage"Œ
+ProtoOADealListByPositionIdReqO
+payloadType (2.ProtoOAPayloadType:%PROTO_OA_DEAL_LIST_BY_POSITION_ID_REQ
+ctidTraderAccountId (
+
+positionId (
+fromTimestamp (
+toTimestamp ("ª
+ProtoOADealListByPositionIdResO
+payloadType (2.ProtoOAPayloadType:%PROTO_OA_DEAL_LIST_BY_POSITION_ID_RES
+ctidTraderAccountId (
+deal (2.ProtoOADeal
+hasMore ("ê
+ProtoOADealOffsetListReqG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_DEAL_OFFSET_LIST_REQ
+ctidTraderAccountId (
+dealId ("Œ
+ProtoOADealOffsetListResG
+payloadType (2.ProtoOAPayloadType:PROTO_OA_DEAL_OFFSET_LIST_RES
+ctidTraderAccountId ($
+offsetBy (2.ProtoOADealOffset&
+
+offsetting (2.ProtoOADealOffset"ï
+"ProtoOAGetPositionUnrealizedPnLReqR
+payloadType (2.ProtoOAPayloadType:(PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQ
+ctidTraderAccountId ("Ë
+"ProtoOAGetPositionUnrealizedPnLResR
+payloadType (2.ProtoOAPayloadType:(PROTO_OA_GET_POSITION_UNREALIZED_PNL_RES
+ctidTraderAccountId (<
+positionUnrealizedPnL (2.ProtoOAPositionUnrealizedPnL
+moneyDigits ("å
+ProtoOAOrderDetailsReqD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ORDER_DETAILS_REQ
+ctidTraderAccountId (
+orderId ("µ
+ProtoOAOrderDetailsResD
+payloadType (2.ProtoOAPayloadType:PROTO_OA_ORDER_DETAILS_RES
+ctidTraderAccountId (
+order (2.ProtoOAOrder
+deal (2.ProtoOADeal"–
+ProtoOAOrderListByPositionIdReqP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_ORDER_LIST_BY_POSITION_ID_REQ
+ctidTraderAccountId (
+
+positionId (
+fromTimestamp (
+toTimestamp ("ø
+ProtoOAOrderListByPositionIdResP
+payloadType (2.ProtoOAPayloadType:&PROTO_OA_ORDER_LIST_BY_POSITION_ID_RES
+ctidTraderAccountId (
+order (2.ProtoOAOrder
+hasMore (BB
+com.xtrader.protocol.openapi.v2BContainerOpenApiV2MessagesP†

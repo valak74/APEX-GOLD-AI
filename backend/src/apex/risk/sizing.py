@@ -5,9 +5,9 @@ Formula (docs/01-architecture.md §5):
     price_risk       = |entry - stop|                          (quote ccy per unit of base)
     loss_per_lot_qc  = (price_risk + slippage_buffer) * contract_size
     loss_per_lot_ac  = convert(loss_per_lot_qc, quote->account, conservative high)
-                       + round-trip commission per lot (converted, conservative high)
+    total_risk(v)    = loss_per_lot_ac * v + 2 * commission(v) converted   (commission may have a minimum)
     risk_budget      = min(equity, balance) * risk_pct
-    lots             = floor_to_step(risk_budget / loss_per_lot_ac)
+    lots             = floor_to_step(risk_budget / total_risk(1)), then stepped down while total_risk > budget
 
 Every rejection is explicit; nothing is silently adjusted upward. All math is Decimal.
 """
@@ -101,11 +101,13 @@ def compute_position_size(inp: SizingInput, spec: SymbolSpec, fx: FxConverter, n
     if capital.amount <= 0:
         return _reject(SizingRejection.NON_POSITIVE_EQUITY, price_risk=price_risk)
 
+    # Commission is priced at the worse of entry/stop for both sides and may include a per-order minimum,
+    # so total cost is not linear in volume: start from the linear estimate, then step down until it fits.
+    comm_price = max(inp.entry, inp.stop_loss)
     try:
         loss_qc = Money(amount=(price_risk + inp.slippage_buffer) * spec.contract_size, ccy=spec.quote_ccy)
-        loss_ac = fx.convert(loss_qc, acc, now, conservative="high")
-        commission_rt = Money(amount=spec.commission_per_lot_per_side * 2, ccy=spec.commission_ccy)
-        loss_per_lot = loss_ac + fx.convert(commission_rt, acc, now, conservative="high")
+        price_loss_per_lot = fx.convert(loss_qc, acc, now, conservative="high")
+        comm_rate = fx.rate(spec.commission_ccy, acc, now, conservative="high")
         notional_per_lot = fx.convert(
             Money(amount=inp.entry * spec.contract_size, ccy=spec.quote_ccy), acc, now, conservative="high"
         )
@@ -114,6 +116,11 @@ def compute_position_size(inp: SizingInput, spec: SymbolSpec, fx: FxConverter, n
     except FxRateUnavailableError:
         return _reject(SizingRejection.FX_UNAVAILABLE, price_risk=price_risk)
 
+    def total_risk(volume: Decimal) -> Money:
+        commission = Money(amount=2 * spec.commission_for(volume, comm_price) * comm_rate, ccy=acc)
+        return price_loss_per_lot * volume + commission
+
+    loss_per_lot = total_risk(Decimal(1))
     risk_budget = capital * inp.risk_pct
     raw = risk_budget.amount / loss_per_lot.amount
     volume = floor_to_step(raw, spec.volume_step)
@@ -123,6 +130,8 @@ def compute_position_size(inp: SizingInput, spec: SymbolSpec, fx: FxConverter, n
     if volume > cap:
         warnings.append(f"volume reduced from {volume} to cap {cap}")
         volume = floor_to_step(cap, spec.volume_step)
+    while volume >= spec.volume_min and total_risk(volume) > risk_budget:
+        volume -= spec.volume_step  # minimum commission made small sizes proportionally dearer
 
     base = {
         "raw_volume": raw,
@@ -141,7 +150,7 @@ def compute_position_size(inp: SizingInput, spec: SymbolSpec, fx: FxConverter, n
             SizingRejection.INSUFFICIENT_MARGIN, volume=volume, margin_required=margin_required, **base
         )
 
-    risk_amount = loss_per_lot * volume
+    risk_amount = total_risk(volume)
     return SizingResult(
         approved=True,
         volume=volume,

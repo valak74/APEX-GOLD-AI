@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -63,9 +64,30 @@ class SymbolSpec(BaseModel):
     volume_step: Decimal
     volume_max: Decimal
     stops_level: Decimal = Decimal(0)  # min distance of SL/TP from market, in price units
-    commission_per_lot_per_side: Decimal = Decimal(0)  # in commission_ccy
+    # Commission charged on EACH side (open and close), in commission_ccy:
+    #   per_lot:              commission_rate per 1.00 lot
+    #   per_million_notional: commission_rate per 1,000,000 of notional (notional in commission_ccy)
+    #   pct_notional:         commission_rate percent of notional (notional in commission_ccy)
+    # with a floor of min_commission per order side.
+    commission_type: Literal["per_lot", "per_million_notional", "pct_notional"] = "per_lot"
+    commission_rate: Decimal = Decimal(0)
     commission_ccy: str = "USD"
+    min_commission: Decimal = Decimal(0)
     margin_rate: Decimal | None = None  # e.g. 0.05 for 20:1; None => use account leverage
+
+    def commission_for(self, volume: Decimal, price: Decimal) -> Decimal:
+        """Commission for ONE side of an order of ``volume`` lots at ``price``, in ``commission_ccy``."""
+        if self.commission_type == "per_lot":
+            base = self.commission_rate * volume
+        else:
+            if self.commission_ccy != self.quote_ccy:
+                raise ValueError("notional-based commission requires commission_ccy == quote_ccy")
+            notional = volume * self.contract_size * price
+            if self.commission_type == "per_million_notional":
+                base = self.commission_rate * notional / Decimal(1_000_000)
+            else:
+                base = self.commission_rate / Decimal(100) * notional
+        return max(base, self.min_commission) if volume > 0 else Decimal(0)
 
     @model_validator(mode="after")
     def _sane(self) -> SymbolSpec:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from apex.domain.enums import TradingMode
@@ -40,11 +40,26 @@ class Settings(BaseSettings):
     paper_account_currency: str = "EUR"
     paper_leverage: int = 20
 
+    # Market data: "none" (no feed) or "ctrader" (live quotes from a linked cTrader DEMO account)
+    market_data_source: Literal["none", "ctrader"] = "none"
+    ctrader_broker_account_id: int | None = None
+    ctrader_max_gold_leverage: int = 20  # conservative margin assumption (ESMA retail cap for gold)
+    ctrader_host: str | None = None  # default: official demo host
+    ctrader_port: int = 5035
+    ctrader_use_tls: bool = True  # may only be disabled in the test environment
+
     log_level: str = "INFO"
     log_json: bool = True
 
+    @field_validator("ctrader_broker_account_id", "ctrader_host", mode="before")
+    @classmethod
+    def _empty_is_none(cls, v: object) -> object:
+        return None if v == "" else v  # docker compose passes unset variables as ""
+
     @model_validator(mode="after")
     def _require_secrets_outside_dev(self) -> Settings:
+        if not self.ctrader_use_tls and self.environment != "test":
+            raise ValueError("APEX_CTRADER_USE_TLS=false is only allowed in the test environment")
         if self.environment == "prod":
             if len(self.jwt_secret.get_secret_value()) < 32:
                 raise ValueError("APEX_JWT_SECRET must be set (>= 32 chars) in prod")

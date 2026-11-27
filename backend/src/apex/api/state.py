@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from apex.broker.base import BrokerAdapter
 from apex.core.config import Settings
 from apex.domain.models import utcnow
+from apex.market.feed import MarketFeed
 
 
 @dataclass
@@ -62,3 +63,4 @@ class AppState:
     broker: BrokerAdapter
     login_limiter: RateLimiter
     trading: TradingState = field(default_factory=TradingState)
+    market: MarketFeed = field(default_factory=MarketFeed)

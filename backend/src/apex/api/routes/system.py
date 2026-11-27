@@ -16,7 +16,7 @@ from apex.core.fx import FxConverter
 from apex.db.audit import append_audit
 from apex.db.models import RiskConfigVersion, User
 from apex.domain.enums import CloseReason, Role, Side
-from apex.domain.models import AccountInfo, ClosedTrade, Position, Quote, utcnow
+from apex.domain.models import AccountInfo, ClosedTrade, Position, Quote, SymbolSpec, utcnow
 from apex.risk.config import RiskConfig
 from apex.risk.sizing import SizingInput, SizingResult, compute_position_size
 
@@ -68,7 +68,7 @@ class SystemStatus(BaseModel):
     kill_switch_at: datetime | None
     risk_config_hash: str
     risk_config_version: int | None
-    market_data: str
+    market_data: dict[str, Any]
 
 
 @router.get("/system/status", response_model=SystemStatus)
@@ -85,7 +85,7 @@ async def system_status(_: Viewer, state: StateDep, session: SessionDep) -> Syst
         kill_switch_at=t.kill_switch_at,
         risk_config_hash=cfg.config_hash(),
         risk_config_version=ver,
-        market_data="not_connected (phase 3)",
+        market_data=state.market.describe(),
     )
 
 
@@ -226,3 +226,45 @@ async def position_size(body: SizeCalcIn, _: Viewer, state: StateDep, session: S
         min_free_margin_ratio=cfg.min_free_margin_ratio,
     )
     return compute_position_size(inp, spec, fx, now)
+
+
+# --------------------------------------------------------------------------- market
+class QuoteOut(BaseModel):
+    symbol: str
+    bid: Decimal
+    ask: Decimal
+    spread: Decimal
+    ts: datetime
+    age_s: float
+
+
+@router.get("/market/quote", response_model=QuoteOut)
+async def market_quote(_: Viewer, state: StateDep, symbol: str = "XAUUSD") -> QuoteOut:
+    q = state.market.last.get(symbol)
+    if q is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "no live quote (market data not connected)")
+    return QuoteOut(
+        symbol=q.symbol,
+        bid=q.bid,
+        ask=q.ask,
+        spread=q.spread,
+        ts=q.ts,
+        age_s=round((utcnow() - q.ts).total_seconds(), 1),
+    )
+
+
+class SpecOut(BaseModel):
+    source: str
+    spec: SymbolSpec
+    commission_per_lot_side_at_price: Decimal | None
+
+
+@router.get("/market/spec", response_model=SpecOut)
+async def market_spec(_: Viewer, state: StateDep) -> SpecOut:
+    spec = await state.broker.get_symbol_spec("XAUUSD")
+    q = state.market.last.get("XAUUSD")
+    return SpecOut(
+        source=state.market.spec_source,
+        spec=spec,
+        commission_per_lot_side_at_price=spec.commission_for(Decimal(1), q.mid) if q else None,
+    )

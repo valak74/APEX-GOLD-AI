@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { KillSwitch } from "@/components/KillSwitch";
+import { LivePrice } from "@/components/LivePrice";
 import { ModeBanner } from "@/components/ModeBanner";
 import { Panel, Pending, Stat } from "@/components/Panel";
 import { SizeCalculator } from "@/components/SizeCalculator";
-import { api, ApiError, fmtMoney, type Account, type Me, type Position, type RiskConfigOut, type SystemStatus } from "@/lib/api";
+import { api, ApiError, fmtMoney, type Account, type LiveQuote, type Me, type Position, type RiskConfigOut, type SpecOut, type SystemStatus } from "@/lib/api";
 
 const RISK_LABELS: Record<string, [string, "pct" | "int" | "usd" | "lot" | "min"]> = {
   risk_per_trade_pct: ["Risque par trade", "pct"],
@@ -21,6 +22,15 @@ const RISK_LABELS: Record<string, [string, "pct" | "int" | "usd" | "lot" | "min"
   max_volume_lots: ["Volume max", "lot"],
   news_lockout_minutes_before: ["Blocage avant news", "min"],
   news_lockout_minutes_after: ["Blocage après news", "min"],
+};
+
+const MD_STATE_FR: Record<SystemStatus["market_data"]["state"], string> = {
+  disabled: "désactivée",
+  not_configured: "non configurée",
+  connecting: "connexion…",
+  connected: "connectée",
+  reconnecting: "reconnexion…",
+  error: "erreur",
 };
 
 function fmtRisk(v: string | number, kind: string): string {
@@ -39,6 +49,8 @@ export default function Dashboard() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [risk, setRisk] = useState<RiskConfigOut | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<LiveQuote | null>(null);
+  const [spec, setSpec] = useState<SpecOut | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +62,8 @@ export default function Dashboard() {
         api<RiskConfigOut>("/risk/config"),
       ]);
       setMe(m); setStatus(s); setAccount(a); setPositions(p); setRisk(r); setError(null);
+      setSpec(await api<SpecOut>("/market/spec"));
+      setQuote(await api<LiveQuote>("/market/quote").catch(() => null));
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) router.replace("/login");
       else setError(e instanceof Error ? e.message : "Erreur inconnue");
@@ -58,7 +72,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 5000);
+    const id = setInterval(load, 2000);
     return () => clearInterval(id);
   }, [load]);
 
@@ -137,7 +151,11 @@ export default function Dashboard() {
             <SizeCalculator accountCcy={account.currency} />
           </Panel>
 
-          <Panel title="Graphique XAU/USD"><Pending phase={3} what="Flux de prix temps réel et graphique" /></Panel>
+          <Panel title="XAU/USD en direct">
+            <LivePrice md={status.market_data} quote={quote} spec={spec} />
+          </Panel>
+
+          <Panel title="Graphique XAU/USD"><Pending phase={3} what="Bougies et historique" /></Panel>
         </div>
 
         <div className="space-y-4">
@@ -145,7 +163,11 @@ export default function Dashboard() {
             <dl className="space-y-1.5 text-sm">
               <Row k="Mode" v={status.mode.toUpperCase()} />
               <Row k="Broker" v={`${status.broker.name} · ${status.broker.connected ? "connecté" : "déconnecté"}`} ok={status.broker.connected} />
-              <Row k="Données de marché" v={status.market_data.startsWith("not_connected") ? "non connectées (phase 3)" : status.market_data} ok={!status.market_data.startsWith("not_connected")} />
+              <Row
+                k="Données de marché"
+                v={status.market_data.source === "none" ? "aucune source" : `${status.market_data.source} · ${MD_STATE_FR[status.market_data.state]}`}
+                ok={status.market_data.state === "connected"}
+              />
               <Row k="Trading autorisé" v={status.trading_enabled ? "oui" : "non"} ok={status.trading_enabled} />
               <Row k="Arrêt d'urgence" v={status.kill_switch_engaged ? "ENGAGÉ" : "non"} ok={!status.kill_switch_engaged} />
               <Row k="2FA" v={me.mfa_enabled ? "activée" : "non activée"} ok={me.mfa_enabled} />

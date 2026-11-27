@@ -37,10 +37,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             broker=broker,
             login_limiter=RateLimiter(settings.login_rate_limit_per_minute),
         )
-        log.info("startup", mode=broker.mode.value, broker=broker.capabilities.name, version=apex.__version__)
+        await app.state.apex.market.start(settings, app.state.apex.sessionmaker, broker)
+        log.info(
+            "startup",
+            mode=broker.mode.value,
+            broker=broker.capabilities.name,
+            version=apex.__version__,
+            market_data=settings.market_data_source,
+        )
         try:
             yield
         finally:
+            await app.state.apex.market.stop()
             await broker.disconnect()
             await engine.dispose()
 

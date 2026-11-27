@@ -12,7 +12,31 @@ export type SystemStatus = {
   kill_switch_at: string | null;
   risk_config_hash: string;
   risk_config_version: number | null;
-  market_data: string;
+  market_data: {
+    source: "none" | "ctrader";
+    state: "disabled" | "not_configured" | "connecting" | "connected" | "reconnecting" | "error";
+    error: string | null;
+    broker: string | null;
+    spec_source: string;
+    last_quote_age_s: number | null;
+  };
+};
+
+export type LiveQuote = { symbol: string; bid: string; ask: string; spread: string; ts: string; age_s: number };
+
+export type SpecOut = {
+  source: string;
+  spec: {
+    contract_size: string;
+    volume_min: string;
+    volume_step: string;
+    commission_type: string;
+    commission_rate: string;
+    commission_ccy: string;
+    min_commission: string;
+    margin_rate: string | null;
+  };
+  commission_per_lot_side_at_price: string | null;
 };
 
 export type Account = {

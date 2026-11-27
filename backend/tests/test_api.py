@@ -66,6 +66,8 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
                 c.app = app  # type: ignore[attr-defined]
                 yield c
     except (OSError, DBAPIError) as e:
+        if os.environ.get("APEX_REQUIRE_DB") == "1":  # CI: a missing database is a failure, not a skip
+            raise
         pytest.skip(f"database unavailable: {e}")
 
 

@@ -7,7 +7,7 @@ Exit criteria are **gates** — the next phase does not start on a failed gate.
 |---|---|---|---|---|
 | 1 | Research & architecture | ✅ Done (2026-11-27) | `docs/00`–`06`, ADRs (0005: direct broker API, no MT5) | Docs reviewed; **broker identified** (open) |
 | 2 | Foundation | ✅ Done (2026-11-27) — see `08-phase2-report.md` | Repo layout, `pyproject`, Docker Compose (Timescale, Redis, api), config system, structured logging, auth (users/roles/MFA), domain models, `BrokerAdapter` ABC + `PaperAdapter` + `SimulationAdapter`, Next.js shell with mode banner, CI (lint, type-check, tests) | `docker compose up` healthy; paper adapter round-trip test; CI green |
-| 3 | Market data | ⏳ Next | **cTrader Open API adapter (read-only: OAuth, symbol spec, account, spot quotes)**, Dukascopy importer, tick normaliser, bar builder (1s–1W), DQ checks & score, Timescale storage/compression, live feed via paper data source, market-state cache | Import ≥10y XAUUSD ticks; DQ report published; bar builder property-tested vs reference |
+| 3 | Market data | 🔶 Part A done (cTrader connectivity, see `10-phase3-progress.md`); part B next | **cTrader Open API adapter (read-only: OAuth, symbol spec, account, spot quotes)**, Dukascopy importer, tick normaliser, bar builder (1s–1W), DQ checks & score, Timescale storage/compression, live feed via paper data source, market-state cache | Import ≥10y XAUUSD ticks; DQ report published; bar builder property-tested vs reference |
 | 4 | Analysis | | Indicators, swing/structure engine (BOS/CHoCH), liquidity (EQH/EQL, sweeps), FVG/OB with objective definitions & invalidations, sessions/levels, regime classifier, MTF context, calendar lockouts, macro feeds, news ingestion & classification (LLM async) | Each detector unit-tested on synthetic fixtures; pattern stats computed on history |
 | 5 | Strategies | | Strategy plug-in API; first 2 strategies (session breakout, liquidity-sweep reversal); then others only after the first two complete phase 7 | Deterministic signal tests; no look-ahead (tested by truncation invariance) |
 | 6 | Risk management | | Position sizing, SL/TP validation, all global limits, lockouts, kill switch, emergency close, reconciliation | Property-based tests (hypothesis) + edge-case suite; 100% branch coverage on risk module |
@@ -31,7 +31,7 @@ A strategy may move from `draft` → `validated` only if, on data it was **not**
 
 ## Open blockers
 
-0. **Spotware approval of the cTrader Open API application** (owner action) → blocks the cTrader adapter in phase 3.
+0. **First real run** of `apex ctrader-check` on the owner's machine (guide: `09-guide-connexion-ctrader.md`) → validates spec/commission mapping against IC Markets.
 
 1. **Broker**: recommendation in `07-broker-selection.md` — **cTrader Open API selected**; finalists IC Markets EU and Pepperstone EU, decided by measured demo costs; fallbacks FP Markets/FxPro (same adapter) or IG. Pending demo verification checklist. Does not block phases 2–9.
 2. Budget for paid data (calendar consensus, news API, Databento) → affects phases 4 & 7 scope.

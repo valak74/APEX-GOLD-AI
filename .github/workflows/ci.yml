@@ -26,6 +26,7 @@ jobs:
     env:
       APEX_DATABASE_URL: postgresql+asyncpg://apex:apex@localhost:5432/apex_test
       APEX_TEST_DATABASE_URL: postgresql+asyncpg://apex:apex@localhost:5432/apex_test
+      APEX_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

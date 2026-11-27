@@ -29,7 +29,8 @@ PAPER_XAUUSD_SPEC = SymbolSpec(
     volume_step=Decimal("0.01"),
     volume_max=Decimal(50),
     stops_level=Decimal(0),
-    commission_per_lot_per_side=Decimal("3.5"),
+    commission_type="per_lot",
+    commission_rate=Decimal("3.5"),
     commission_ccy="USD",
     margin_rate=Decimal("0.05"),  # ESMA retail gold: 20:1
 )

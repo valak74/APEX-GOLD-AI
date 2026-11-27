@@ -213,3 +213,28 @@ def test_factory_refuses_live_and_defaults_to_paper() -> None:
     assert build_broker(Settings()).mode is TradingMode.PAPER
     with pytest.raises(LiveTradingUnavailableError):
         build_broker(Settings(trading_mode=TradingMode.LIVE))
+
+
+async def test_partial_close_splits_open_commission_with_minimum() -> None:
+    spec = SPEC.model_copy(update={"min_commission": D(2)})
+    b = SimBroker(
+        mode=TradingMode.SIMULATION,
+        account_id="t",
+        currency="USD",
+        initial_balance=D(10000),
+        leverage=20,
+        specs=[spec],
+    )
+    await b.connect()
+    await b.on_quote(q("4000.00", "4000.20"))
+    r = await b.place_order(buy(vol="0.10"))
+    assert r.commission is not None and r.commission.amount == D(2)  # 0.35 < 2 minimum
+    assert r.position_id
+    t1 = await b.close_position(r.position_id, volume=D("0.04"))
+    t2 = await b.close_position(r.position_id)
+    # open commission (2) split 40/60, each close side pays the 2 minimum
+    assert t1.commission.amount == D("0.8") + D(2)
+    assert t2.commission.amount == D("1.2") + D(2)
+    assert (await b.get_account_info()).balance.amount == D(10000) - D(2) - D(2) - D(
+        2
+    ) + t1.gross_pnl.amount + t2.gross_pnl.amount
