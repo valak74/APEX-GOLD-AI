@@ -5,7 +5,7 @@ Exit criteria are **gates** — the next phase does not start on a failed gate.
 
 | # | Phase | Status | Key deliverables | Exit gate |
 |---|---|---|---|---|
-| 1 | Research & architecture | ✅ Done (2026-11-27) | `docs/00`–`06`, ADRs | Docs reviewed; **broker identified** (open) |
+| 1 | Research & architecture | ✅ Done (2026-11-27) | `docs/00`–`06`, ADRs (0005: direct broker API, no MT5) | Docs reviewed; **broker identified** (open) |
 | 2 | Foundation | ⏳ Next | Repo layout, `pyproject`, Docker Compose (Timescale, Redis, api), config system, structured logging, auth (users/roles/MFA), domain models, `BrokerAdapter` ABC + `PaperAdapter` + `SimulationAdapter`, Next.js shell with mode banner, CI (lint, type-check, tests) | `docker compose up` healthy; paper adapter round-trip test; CI green |
 | 3 | Market data | | Dukascopy importer, tick normaliser, bar builder (1s–1W), DQ checks & score, Timescale storage/compression, live feed via paper data source, market-state cache | Import ≥10y XAUUSD ticks; DQ report published; bar builder property-tested vs reference |
 | 4 | Analysis | | Indicators, swing/structure engine (BOS/CHoCH), liquidity (EQH/EQL, sweeps), FVG/OB with objective definitions & invalidations, sessions/levels, regime classifier, MTF context, calendar lockouts, macro feeds, news ingestion & classification (LLM async) | Each detector unit-tested on synthetic fixtures; pattern stats computed on history |
@@ -33,4 +33,4 @@ A strategy may move from `draft` → `validated` only if, on data it was **not**
 
 1. **Broker not yet identified** → blocks the live adapter (phase 10) and exact cost calibration; does not block phases 2–9.
 2. Budget for paid data (calendar consensus, news API, Databento) → affects phases 4 & 7 scope.
-3. Production host (Linux VPS; plus Windows VPS if MT5).
+3. Production host: Linux VPS (no Windows needed — MT5 excluded by ADR 0005).

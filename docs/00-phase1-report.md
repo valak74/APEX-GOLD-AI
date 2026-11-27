@@ -21,6 +21,8 @@ to run the Windows MT5 terminal (see §3).
 
 ## 2. The single biggest open question: which broker?
 
+> **Update:** owner decided — no MetaTrader; dedicated platform connected directly to the broker's official API (ADR 0005).
+
 The specification refers to "the broker API" but no broker is named. **Everything in the execution
 layer depends on this answer.** The architecture below is broker-agnostic (adapter pattern), and the
 paper/simulation adapters can be built without a broker, but the live adapter cannot.

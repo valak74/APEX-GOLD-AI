@@ -22,16 +22,25 @@
 | Typical availability | Most retail CFD brokers | Many ECN-style brokers | OANDA only; not all divisions | Pro/institutional |
 | Main risk | Windows dependency, polling, broker-specific symbol suffixes, unaudited Linux bridges | Gold symbol may be missing for some brokers; OAuth app approval | Jurisdiction/division eligibility; unit-based sizing | Access cost & minimums |
 
-## 2. Recommendation
+## 2. Decision: direct broker API, no MetaTrader (ADR 0005)
 
-- **If your broker offers cTrader or OANDA v20** → use it. Linux-native, push-based, cleanest
-  integration and easiest to run on a VPS alongside the rest of the stack.
-- **If your broker is MT5-only** → run the MT5 terminal on a small **Windows VPS** (or Windows
-  container) near the broker server, with a thin, audited **MT5 gateway service** (Python, official
-  package) exposing a narrow authenticated gRPC/HTTP API that our `MT5Adapter` calls. Do not depend
-  on unmaintained Wine bridges for live money. The gateway enforces its own last-line limits (max lot,
-  SL required).
-- FIX only if the account already has it.
+The owner chose to build a dedicated platform connected **directly** to the broker's API.
+MT5 is out of scope (column kept above for reference only). Eligible brokers must expose an official
+API with streaming prices, account/margin data, orders with attached SL, modifications and position
+monitoring for XAU/USD.
+
+| Broker | API | Protocol | Gold on API | Notes / to verify |
+|---|---|---|---|---|
+| IG | IG REST + Streaming API | REST + Lightstreamer streaming | Gold CFD/spread bet (market "EPIC") | Regulated in France (via EU entity) — verify API access on CFD account, rate limits |
+| Capital.com | Capital.com public API | REST + WebSocket | Gold CFD | Verify API enabled for EU entity, rate/session limits |
+| Saxo | Saxo OpenAPI | REST + WebSocket streaming | XAUUSD (FX spot metal) / gold CFD | App registration, OAuth; minimum deposit |
+| Interactive Brokers | TWS API / Web API | Socket (TWS/Gateway) or REST | Spot gold / gold CFD depending on entity; GC futures | Requires IB Gateway process (not MT, but a local gateway) |
+| cTrader brokers | cTrader Open API | Protobuf/JSON over TLS | Broker-dependent | Our platform uses the API only, no cTrader UI needed |
+| OANDA | v20 REST + streaming | REST + HTTP stream | XAU_USD | **Not available** for OANDA TMS (EU/Poland) and OANDA Global Markets |
+
+Selection criteria, in order: (1) API officially supports automated trading for the account type;
+(2) SL attached server-side on entry; (3) streaming quotes; (4) all-in gold cost (spread + commission +
+swap); (5) demo account with identical API; (6) rate limits; (7) regulator.
 
 ## 3. XAU/USD specifics to verify (per broker)
 
