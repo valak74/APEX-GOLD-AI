@@ -66,7 +66,7 @@ async def env() -> AsyncIterator[tuple[httpx.AsyncClient, Any]]:
                 await ses.execute(
                     text(
                         "TRUNCATE core.users, core.audit_log, market.bars, intel.economic_events, "
-                        "research.backtests RESTART IDENTITY"
+                        "research.backtests, research.holdout RESTART IDENTITY"
                     )
                 )
                 ses.add(User(email="adm@x.io", password_hash=hash_password(PW), role=Role.ADMIN))
@@ -137,3 +137,52 @@ async def test_viewer_cannot_start_and_bad_input_rejected(env: Any) -> None:
     assert (await c.get("/backtests/999")).status_code == 404
     await c.post("/auth/login", json={"email": "adm@x.io", "password": PW})
     assert (await c.post("/backtests", json={"stop_buffer_atr": 9})).status_code == 422
+
+
+async def test_holdout_is_reserved_and_only_admin_can_consult_it(env: Any) -> None:
+    c, st = env
+    async with st.sessionmaker() as ses:  # one bar 200 days later: history spans > 60 days
+        ses.add(_bar("dukascopy", 200 * 288, 4000, 4001, 3999, 4000))
+        await ses.commit()
+    await c.post("/auth/login", json={"email": "adm@x.io", "password": PW})
+    d = await wait_done(c, (await c.post("/backtests", json={})).json()["id"])
+    assert d["status"] == "done"
+    rep = d["report"]
+    assert (
+        rep["data"]["bars"] == 1500 and rep["data"]["holdout_start"] is not None
+    )  # the late bar is held out
+    assert any(i["name"].startswith("Sharpe dégonflé") for i in rep["validation"]["items"])
+    h = (await c.get("/research/holdout")).json()
+    assert h["start"] is not None and h["consultations"] == 0
+    # the reserved period never moves, even when more history arrives
+    async with st.sessionmaker() as ses:
+        ses.add(_bar("dukascopy", 400 * 288, 4000, 4001, 3999, 4000))
+        await ses.commit()
+    await wait_done(c, (await c.post("/backtests", json={"timeframe": "5m"})).json()["id"])
+    assert (await c.get("/research/holdout")).json()["start"] == h["start"]
+    # final verdict: admin only, and every consultation is counted
+    f = await wait_done(c, (await c.post("/backtests", json={"final_holdout": True})).json()["id"])
+    assert f["status"] == "error" and "insuffisant" in f["error"]  # only 2 bars in the holdout here
+    assert (await c.get("/research/holdout")).json()["consultations"] == 1
+    await c.post("/auth/login", json={"email": "view@x.io", "password": PW})
+    assert (await c.post("/backtests", json={"final_holdout": True})).status_code == 403
+
+
+async def test_diagnostic_endpoints(env: Any) -> None:
+    c, _ = env
+    await c.post("/auth/login", json={"email": "adm@x.io", "password": PW})
+    r = await c.post("/research/diagnostics", json={"timeframes": ["5m"]})
+    assert r.status_code == 202, r.text
+    for _ in range(600):
+        d = (await c.get(f"/research/diagnostics/{r.json()['id']}")).json()
+        if d["status"] != "running":
+            break
+        await asyncio.sleep(0.1)
+    assert d["status"] == "done", d
+    rep = d["report"]
+    assert rep["findings"] and rep["costs"][0]["timeframe"] == "5m" and rep["data"]["bars_5m"] == 1500
+    [row] = (await c.get("/research/diagnostics")).json()
+    assert row["id"] == d["id"] and row["tests_total"] == rep["tests_total"]
+    assert (await c.get("/backtests")).json() == []  # diagnostics are not listed as backtests
+    assert (await c.get(f"/backtests/{d['id']}")).status_code == 404
+    assert (await c.post("/research/diagnostics", json={"timeframes": []})).status_code == 422

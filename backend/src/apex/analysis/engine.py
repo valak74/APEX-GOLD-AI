@@ -18,7 +18,14 @@ import numpy as np
 
 from apex.analysis.indicators import Candles, atr, ema, rsi
 from apex.analysis.levels import reference_levels
-from apex.analysis.liquidity import equal_levels, fair_value_gaps, order_blocks, premium_discount, sweeps
+from apex.analysis.liquidity import (
+    current_pools,
+    equal_levels,
+    fair_value_gaps,
+    order_blocks,
+    premium_discount,
+    sweeps,
+)
 from apex.analysis.regime import classify
 from apex.analysis.structure import analyze_structure
 
@@ -76,7 +83,7 @@ def analyze_tf(c: Candles, k: int = 3, max_items: int = 6) -> TFAnalysis:
     reg = classify(c, st)
     fvgs = [z for z in fair_value_gaps(c) if z.active]
     obs = [z for z in order_blocks(c, st) if z.active]
-    pools = [p for p in equal_levels(c, st.swings) if p.swept_idx is None]
+    pools = [p for p in current_pools(equal_levels(c, st.swings)) if p.swept_idx is None]
     sw = sweeps(c, st, equal_levels(c, st.swings))
     a, r = atr(c), rsi(c.c)
     e50, e200 = ema(c.c, 50), ema(c.c, 200)

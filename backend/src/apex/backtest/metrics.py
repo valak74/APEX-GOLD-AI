@@ -9,6 +9,7 @@ import math
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from statistics import NormalDist
 from typing import Any
 
 import numpy as np
@@ -154,6 +155,36 @@ def monte_carlo(
     }
 
 
+EULER_GAMMA = 0.5772156649
+
+
+def deflated_sharpe(r: np.ndarray, n_trials: int, sr_trials_var: float) -> dict[str, Any]:
+    """Deflated Sharpe ratio (Bailey & López de Prado, 2014) on per-trade returns.
+
+    Probability that the true per-trade Sharpe exceeds the best Sharpe expected from ``n_trials`` unskilled
+    attempts whose Sharpes vary with ``sr_trials_var``. Corrects for selection bias (many variants tried),
+    non-normal returns (skew, fat tails) and sample length. ≥ 0.95 is required by the gate.
+    """
+    t = len(r)
+    if t < 10 or float(np.std(r, ddof=1)) == 0:
+        return {"dsr": None, "sr": None, "sr0": None, "trials": n_trials}
+    sd = float(np.std(r, ddof=1))
+    sr = float(np.mean(r)) / sd
+    z = (r - np.mean(r)) / sd
+    skew, kurt = float(np.mean(z**3)), float(np.mean(z**4))
+    nd = NormalDist()
+    if n_trials > 1 and sr_trials_var > 0:
+        sr0 = math.sqrt(sr_trials_var) * (
+            (1 - EULER_GAMMA) * nd.inv_cdf(1 - 1 / n_trials)
+            + EULER_GAMMA * nd.inv_cdf(1 - 1 / (n_trials * math.e))
+        )
+    else:
+        sr0 = 0.0
+    denom = 1 - skew * sr + (kurt - 1) / 4 * sr * sr
+    dsr = nd.cdf((sr - sr0) * math.sqrt(t - 1) / math.sqrt(denom)) if denom > 0 else 0.0
+    return {"dsr": round(dsr, 4), "sr": round(sr, 4), "sr0": round(sr0, 4), "trials": n_trials}
+
+
 @dataclass
 class GateItem:
     name: str
@@ -177,6 +208,7 @@ def validate(
     folds: list[dict[str, Any]],
     neighbours: list[dict[str, Any]],
     min_trades: int = 200,
+    dsr: dict[str, Any] | None = None,
 ) -> Validation:
     """Pre-registered criteria (roadmap). A strategy is validated only if ALL pass."""
     items: list[GateItem] = []
@@ -226,4 +258,14 @@ def validate(
             "toutes les variantes > 0 R",
         )
     )
+    if dsr is not None:
+        v = dsr.get("dsr")
+        items.append(
+            GateItem(
+                f"Sharpe dégonflé ({dsr.get('trials')} essais comptés)",
+                v is not None and v >= 0.95,
+                f"{v:.2f}" if v is not None else "—",
+                "≥ 0,95",
+            )
+        )
     return Validation(all(i.passed for i in items), items)

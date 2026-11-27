@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from apex.analysis.indicators import Candles
@@ -19,6 +19,7 @@ from apex.backtest.signals import StrategyParams
 from apex.db.models import BacktestRow, BarRow, EconomicEvent
 from apex.domain.models import SymbolSpec, utcnow
 from apex.intel.calendar import GOLD_SENSITIVE, LOCKOUT_IMPORTANCE
+from apex.research.holdout import ensure_holdout
 from apex.risk.config import RiskConfig
 
 SOURCE_PRIORITY = {"dukascopy": 0, "ctrader": 1}  # long clean history first; others after
@@ -26,7 +27,7 @@ SOURCE_PRIORITY = {"dukascopy": 0, "ctrader": 1}  # long clean history first; ot
 
 class BacktestRequest(BaseModel):
     setup: Literal["liquidity_sweep_reversal", "trend_pullback"] = "liquidity_sweep_reversal"
-    timeframe: Literal["5m", "15m"] = "5m"
+    timeframe: Literal["5m", "15m", "1h"] = "5m"
     start: datetime | None = None
     end: datetime | None = None
     stop_buffer_atr: float = Field(0.2, ge=0.0, le=2.0)
@@ -38,6 +39,7 @@ class BacktestRequest(BaseModel):
     slippage: float = Field(0.05, ge=0.0, le=5.0)
     swap_per_lot_night: float = Field(0.0, ge=-100.0, le=100.0)
     initial_balance: float = Field(10_000.0, ge=100.0)
+    final_holdout: bool = False  # final verdict on the reserved period (admin, recorded)
 
 
 async def load_history(
@@ -87,16 +89,44 @@ async def load_news(
     ]
 
 
+async def prior_trials(maker: async_sessionmaker[AsyncSession], setup: str, timeframe: str) -> int:
+    """Parameter variants already tried on this setup/timeframe (6 per completed research run)."""
+    async with maker() as s:
+        n = (
+            await s.execute(
+                select(func.count())
+                .select_from(BacktestRow)
+                .where(
+                    BacktestRow.kind == "backtest",
+                    BacktestRow.status == "done",
+                    BacktestRow.request["setup"].as_string() == setup,
+                    BacktestRow.request["timeframe"].as_string() == timeframe,
+                )
+            )
+        ).scalar_one()
+    return int(n) * 6
+
+
 async def run_backtest(
     maker: async_sessionmaker[AsyncSession],
     req: BacktestRequest,
     spec: SymbolSpec,
     cfg: RiskConfig,
     spec_source: str,
+    actor: str = "system",
 ) -> dict[str, Any]:
-    c, spreads, sources = await load_history(maker, req.timeframe, req.start, req.end)
+    hold = await ensure_holdout(maker, actor)
+    start, end = req.start, req.end
+    if req.final_holdout:
+        if hold is None:
+            return {"error": "aucune période hors-échantillon réservée (historique trop court)"}
+        start, end = hold.start, None
+    elif hold is not None:
+        end = min(end, hold.start) if end else hold.start
+    c, spreads, sources = await load_history(maker, req.timeframe, start, end)
     if len(c) < 200:
         return {"error": f"historique insuffisant : {len(c)} bougies {req.timeframe} (importez Dukascopy)"}
+    trials = await prior_trials(maker, req.setup, req.timeframe)
     news = await load_news(
         maker, c.t[0], c.t[-1], cfg.news_lockout_minutes_before, cfg.news_lockout_minutes_after
     )
@@ -112,9 +142,14 @@ async def run_backtest(
         spread_mult=req.spread_mult, slippage=req.slippage, swap_per_lot_night=req.swap_per_lot_night
     )
     report = await asyncio.to_thread(
-        full_report, c, spreads, spec, params, cfg, costs, req.initial_balance, news
+        full_report, c, spreads, spec, params, cfg, costs, req.initial_balance, news, 4, trials
     )
-    report["data"] = report.get("data", {}) | {"sources": sources, "news_windows": len(news)}
+    report["data"] = report.get("data", {}) | {
+        "sources": sources,
+        "news_windows": len(news),
+        "holdout_start": hold.start if hold else None,
+        "final_holdout": req.final_holdout,
+    }
     report["spec"] = {
         "source": spec_source,
         "commission": f"{spec.commission_type} {spec.commission_rate}",
@@ -125,12 +160,14 @@ async def run_backtest(
     return out
 
 
-async def store(maker: async_sessionmaker[AsyncSession], row_id: int, report: dict[str, Any]) -> None:
+async def store(
+    maker: async_sessionmaker[AsyncSession], row_id: int, report: dict[str, Any], ok_key: str = "summary"
+) -> None:
     async with maker() as s:
         row = await s.get(BacktestRow, row_id)
         if row is None:
             return
-        if "error" in report and "summary" not in report:
+        if "error" in report and ok_key not in report:
             row.status, row.error = "error", report["error"]
         else:
             row.status, row.report = "done", report

@@ -26,6 +26,10 @@ _running: set[asyncio.Task[None]] = set()
 async def start_backtest(
     body: BacktestRequest, user: Researcher, state: StateDep, session: SessionDep
 ) -> dict[str, Any]:
+    if body.final_holdout and user.role != Role.ADMIN:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "verdict final sur le hors-échantillon : admin uniquement"
+        )
     if sum(1 for t in _running if not t.done()) >= 2:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "deux backtests sont déjà en cours")
     cfg, _ = await active_risk_config(session)
@@ -33,11 +37,11 @@ async def start_backtest(
     row = BacktestRow(created_by=user.email, status="running", request=body.model_dump(mode="json"))
     session.add(row)
     await session.commit()
-    rid = row.id
+    rid, actor = row.id, user.email
 
     async def job() -> None:
         try:
-            report = await run_backtest(state.sessionmaker, body, spec, cfg, state.market.spec_source)
+            report = await run_backtest(state.sessionmaker, body, spec, cfg, state.market.spec_source, actor)
         except Exception as e:  # report the failure on the run, never crash the API
             log.error("backtest_failed", id=rid, error=type(e).__name__)
             report = {"error": f"échec : {type(e).__name__}"}
@@ -53,7 +57,10 @@ async def start_backtest(
 async def list_backtests(_: Viewer, session: SessionDep, limit: int = 30) -> list[dict[str, Any]]:
     rows = (
         await session.execute(
-            select(BacktestRow).order_by(BacktestRow.id.desc()).limit(max(1, min(limit, 200)))
+            select(BacktestRow)
+            .where(BacktestRow.kind == "backtest")
+            .order_by(BacktestRow.id.desc())
+            .limit(max(1, min(limit, 200)))
         )
     ).scalars()
     out = []
@@ -81,7 +88,7 @@ async def list_backtests(_: Viewer, session: SessionDep, limit: int = 30) -> lis
 @router.get("/{bt_id}")
 async def get_backtest(bt_id: int, _: Viewer, session: SessionDep) -> dict[str, Any]:
     r = await session.get(BacktestRow, bt_id)
-    if r is None:
+    if r is None or r.kind != "backtest":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "backtest not found")
     return {
         "id": r.id,

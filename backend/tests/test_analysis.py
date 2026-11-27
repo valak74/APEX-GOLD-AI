@@ -305,3 +305,17 @@ def test_property_fast_sweeps_equal_reference(seed: int, vol: float) -> None:
     ref = sweeps_reference(c, s, equal_levels(c, s.swings))
     key = lambda x: (x.idx, x.direction, x.level, x.target, x.score)  # noqa: E731
     assert sorted(map(key, fast)) == sorted(map(key, ref))
+
+
+def test_pool_growth_does_not_leak_into_the_past() -> None:
+    """Regression (found by the property test): a pool that later gains a third swing must still exist, with
+    its two-swing level, between the second and the third swing — as it did with the data of that time."""
+    for seed, cut in ((4953, 40),):
+        c = random_walk(200, seed, vol=2.0)
+        st, h = analyze_structure(c), c.head(cut)
+        sh = analyze_structure(h)
+        full = [
+            (s.direction, s.idx, s.level) for s in sweeps(c, st, equal_levels(c, st.swings)) if s.idx < cut
+        ]
+        part = [(s.direction, s.idx, s.level) for s in sweeps(h, sh, equal_levels(h, sh.swings))]
+        assert full == part

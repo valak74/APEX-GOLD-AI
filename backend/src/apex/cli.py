@@ -127,6 +127,28 @@ async def backtest_cli(setup: str, timeframe: str, start: str | None, end: str |
     return 0
 
 
+async def diagnose_cli(timeframes: list[str]) -> int:
+    from apex.broker.factory import PAPER_XAUUSD_SPEC
+    from apex.research.service import DiagnosticRequest, run_diagnostic
+
+    req = DiagnosticRequest.model_validate({"timeframes": timeframes})
+    engine = make_engine(get_settings().database_url)
+    try:
+        rep = await run_diagnostic(make_sessionmaker(engine), req, PAPER_XAUUSD_SPEC, "placeholder", "cli")
+    finally:
+        await engine.dispose()
+    if "error" in rep:
+        print(rep["error"])
+        return 1
+    d = rep["data"]
+    print(f"Recherche : {d['start'][:10]} → {d['end'][:10]} ({d['bars_5m']} bougies 5m)")
+    print(f"Hors-échantillon réservé à partir de : {d['holdout_start'] or '—'}")
+    print(f"{rep['tests_total']} tests, {rep['retained_total']} résultats retenus")
+    for f in rep["findings"]:
+        print(f"  • {f}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="apex")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -162,6 +184,8 @@ def main(argv: list[str] | None = None) -> None:
     bt.add_argument("--timeframe", default="5m", choices=["5m", "15m"])
     bt.add_argument("--from", dest="start", default=None)
     bt.add_argument("--to", dest="end", default=None)
+    dg = sub.add_parser("diagnose", help="edge diagnostics on research history (before the holdout)")
+    dg.add_argument("--timeframes", default="5m,15m,1h")
     srv = sub.add_parser("serve", help="run the API")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -191,6 +215,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(asyncio.run(calendar_import(a.file, a.source)))
     elif a.cmd == "backtest":
         sys.exit(asyncio.run(backtest_cli(a.setup, a.timeframe, a.start, a.end)))
+    elif a.cmd == "diagnose":
+        sys.exit(asyncio.run(diagnose_cli(a.timeframes.split(","))))
     elif a.cmd == "serve":
         import uvicorn
 

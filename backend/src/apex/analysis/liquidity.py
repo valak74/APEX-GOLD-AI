@@ -61,6 +61,7 @@ class Pool:
     idx: int  # known from (confirmation of the last swing)
     t: datetime
     swept_idx: int | None = None
+    superseded_idx: int | None = None  # a larger version of the same pool became known at this bar
 
 
 @dataclass
@@ -132,6 +133,9 @@ def _track_zones(c: Candles, zones: list[Zone]) -> None:
 
 
 def equal_levels(c: Candles, swings: list[Swing], tol_atr: float = 0.1, atr_n: int = 14) -> list[Pool]:
+    """Equal highs/lows. Every growth stage of a pool is kept as its own version (``superseded_idx`` marks
+    when the next one became known): a pool must look, at each bar, exactly as it looked with the data
+    available then. Use ``current_pools`` for display."""
     a = atr(c, atr_n)
     pools: list[Pool] = []
     for side, kind in (("highs", "high"), ("lows", "low")):
@@ -142,14 +146,26 @@ def equal_levels(c: Candles, swings: list[Swing], tol_atr: float = 0.1, atr_n: i
                 group.append(s)
                 lvl = max(x.price for x in group) if side == "highs" else min(x.price for x in group)
                 pool = Pool(side, lvl, [x.idx for x in group], s.confirmed_idx, c.t[s.confirmed_idx])  # type: ignore[arg-type]
-                if pools and pools[-1].side == side and pools[-1].swing_idxs == pool.swing_idxs[:-1]:
-                    pools[-1] = pool  # same pool grew
-                else:
-                    pools.append(pool)
+                prev = next((p for p in reversed(pools) if p.side == side), None)
+                if prev is not None and prev.swing_idxs == pool.swing_idxs[:-1]:
+                    # the pool grew: keep the earlier version (it existed until now) and retire it from here,
+                    # so results before this bar never depend on the later swing (no look-ahead)
+                    prev.superseded_idx = pool.idx
+                pools.append(pool)
             else:
                 group = [s]
     pools.sort(key=lambda p: p.idx)
     return pools
+
+
+def _retired(p: Pool, i: int) -> bool:
+    """A newer version of this pool was already known before bar ``i``."""
+    return p.superseded_idx is not None and p.superseded_idx < i
+
+
+def current_pools(pools: list[Pool]) -> list[Pool]:
+    """Latest version of each pool (for display and context)."""
+    return [p for p in pools if p.superseded_idx is None]
 
 
 def sweeps_reference(
@@ -171,8 +187,10 @@ def sweeps_reference(
     used: set[tuple[str, float]] = set()
     for i in range(len(c)):
         u = _unit(a, c, i)
-        for known, side, lvl, tgt, sidx in targets:
+        for ti, (known, side, lvl, tgt, sidx) in enumerate(targets):
             if known >= i or (side, lvl) in used:
+                continue
+            if tgt == "pool" and _retired(pools[ti], i):
                 continue
             if tgt == "swing" and pool_known.get(sidx, i) < i:
                 continue
@@ -307,6 +325,8 @@ def sweeps(
         for k in sorted(cands):  # original priority order (pools first)
             _known, side, lvl, tgt, sidx = targets[k]
             if (side, lvl) in used or (tgt == "swing" and pool_known.get(sidx, i) < i):
+                continue
+            if tgt == "pool" and _retired(pools[k], i):
                 continue
             if side == "highs" and c.h[i] - lvl >= pu and c.c[i] < lvl:
                 used.add((side, lvl))

@@ -19,7 +19,7 @@ import numpy as np
 
 from apex.analysis.indicators import Candles
 from apex.backtest.engine import BTTrade, CostModel, run
-from apex.backtest.metrics import monte_carlo, summarize, validate
+from apex.backtest.metrics import deflated_sharpe, monte_carlo, summarize, validate
 from apex.backtest.signals import StrategyParams
 from apex.domain.models import SymbolSpec
 from apex.risk.config import RiskConfig
@@ -56,7 +56,9 @@ def full_report(
     initial: float = 10_000.0,
     news: list[tuple[datetime, datetime]] | None = None,
     folds: int = 4,
+    prior_trials: int = 0,
 ) -> dict[str, Any]:
+    """``prior_trials``: parameter variants already tried on this setup in earlier runs (selection bias)."""
     costs = costs or CostModel()
     if len(c) < 200:
         return {"error": "historique insuffisant (moins de 200 bougies)", "bars": len(c)}
@@ -143,7 +145,18 @@ def full_report(
         and x["min_quality"] == params.min_quality
     ]
 
-    gate = validate(oos_sum if oos_sum.get("trades") else base_sum, stress_sum, fold_sums, near)
+    judged = sorted(oos, key=lambda x: x.exit_t) if oos else base.trades
+    srs = [
+        float(np.mean([t.r for t in v]) / np.std([t.r for t in v], ddof=1))
+        for v in variants.values()
+        if len(v) >= 10 and np.std([t.r for t in v], ddof=1) > 0
+    ]
+    dsr = deflated_sharpe(
+        np.array([t.r for t in judged]),
+        prior_trials + len(variants),
+        float(np.var(srs, ddof=1)) if len(srs) >= 2 else 0.0,
+    )
+    gate = validate(oos_sum if oos_sum.get("trades") else base_sum, stress_sum, fold_sums, near, dsr=dsr)
     dd_series: list[list[Any]] = []
     peak = -1e18
     for ts, v in base.equity:
@@ -170,6 +183,7 @@ def full_report(
         "sensitivity": sens,
         "monte_carlo": monte_carlo(base.trades, initial),
         "validation": gate.to_dict(),
+        "deflated_sharpe": dsr,
         "equity": _downsample(base.equity),
         "drawdown": _downsample([(ts, v) for ts, v in dd_series]),
         "trades": [asdict(t) for t in base.trades[-1000:]],
