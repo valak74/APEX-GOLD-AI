@@ -217,6 +217,8 @@ def test_weekly_loss_and_drawdown_is_critical() -> None:
 def test_losing_streak_and_trades_per_day() -> None:
     streak = [TradeRecord(NOW - timedelta(minutes=10 * i), D(-1)) for i in range(4)]
     assert "losing_streak" in failed(evaluate(prop(), snap(ledger=compute_stats(streak, D(10000), NOW)), CFG))
+    # the pause ends at the next trading day (17:00 New York): the streak cannot block forever
+    assert compute_stats(streak, D(10000), NOW + timedelta(days=1)).consecutive_losses == 0
     many = [TradeRecord(NOW - timedelta(minutes=i + 1), D(1) if i % 2 else D(-1)) for i in range(6)]
     assert "trades_per_day" in failed(evaluate(prop(), snap(ledger=compute_stats(many, D(10000), NOW)), CFG))
 

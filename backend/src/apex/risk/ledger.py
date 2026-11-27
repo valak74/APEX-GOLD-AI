@@ -1,8 +1,10 @@
 """Realised-trade ledger statistics used by the risk engine (pure functions).
 
 Periods follow the gold trading calendar: the day starts at the 17:00 New York rollover,
-the week at the Sunday
-rollover. Drawdown is measured from the peak of the *realised* balance curve to the current *equity*
+the week at the Sunday rollover. The losing streak counts consecutive losses within the current trading
+day only: hitting the limit pauses trading until the next rollover (otherwise, with no trade allowed,
+the streak could never be broken and the bot would stay blocked forever).
+Drawdown is measured from the peak of the *realised* balance curve to the current *equity*
 (conservative: open losses count, open gains never raise the peak).
 """
 
@@ -49,6 +51,8 @@ def compute_stats(trades: list[TradeRecord], initial_balance: Decimal, now: date
         peak = max(peak, bal)
     streak = 0
     for t in reversed(trades):
+        if t.closed_at < day0:
+            break
         if t.net_pnl < 0:
             streak += 1
         else:

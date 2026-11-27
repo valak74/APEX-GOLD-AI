@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { LiveQuote, Lockout, Me, SystemStatus } from "@/lib/api";
 import { KillSwitch } from "./KillSwitch";
@@ -51,6 +53,7 @@ export function Header({ status, me, quote, dayOpen, lockout, onLogout, onRefres
           <span title={mode.hint} className={`rounded-md border px-2 py-0.5 text-[11px] font-bold tracking-[0.14em] ${mode.cls}`}>
             {mode.label}
           </span>
+          <Nav />
         </div>
 
         <div className="order-3 flex w-full items-baseline gap-4 sm:order-none sm:w-auto sm:flex-1 sm:justify-center">
@@ -103,6 +106,31 @@ export function Header({ status, me, quote, dayOpen, lockout, onLogout, onRefres
         </div>
       </div>
     </header>
+  );
+}
+
+function Nav() {
+  const path = usePathname();
+  const items = [
+    { href: "/", label: "Marché" },
+    { href: "/backtests", label: "Backtests" },
+  ];
+  return (
+    <nav aria-label="Navigation principale" className="ml-2 flex rounded-lg border border-line bg-bg/60 p-0.5">
+      {items.map((it) => {
+        const active = it.href === "/" ? path === "/" : path.startsWith(it.href);
+        return (
+          <Link
+            key={it.href}
+            href={it.href}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${active ? "bg-elev text-text shadow" : "text-muted hover:text-text"}`}
+          >
+            {it.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 

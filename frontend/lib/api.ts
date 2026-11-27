@@ -292,3 +292,102 @@ export type RiskDecision = {
   sizing: { volume: string; risk_amount: Money | null; margin_required: Money | null } | null;
   order: { volume: string; stop_loss: string; take_profit: string; client_order_id: string } | null;
 };
+
+// --------------------------------------------------------------------------- backtests
+export type Setup = "liquidity_sweep_reversal" | "trend_pullback";
+export const SETUP_FR: Record<Setup, string> = {
+  liquidity_sweep_reversal: "Balayage de liquidité",
+  trend_pullback: "Repli dans la tendance",
+};
+
+export type BacktestRequest = {
+  setup: Setup;
+  timeframe: "5m" | "15m";
+  start: string | null;
+  end: string | null;
+  stop_buffer_atr: number;
+  min_quality: number;
+  require_htf_alignment: boolean;
+  max_hold_bars: number;
+  sessions: ("asia" | "london" | "newyork")[];
+  spread_mult: number;
+  slippage: number;
+  swap_per_lot_night: number;
+  initial_balance: number;
+};
+
+export type Group = { n: number; avg_r: number; win_rate: number };
+
+export type BTSummary = {
+  trades: number;
+  net_profit?: number;
+  return_pct?: number;
+  win_rate?: number;
+  win_rate_ci?: [number, number];
+  profit_factor?: number | null;
+  expectancy_r?: number;
+  expectancy_r_ci?: [number, number];
+  avg_win_r?: number | null;
+  avg_loss_r?: number | null;
+  max_drawdown?: number;
+  max_drawdown_pct?: number;
+  recovery_factor?: number | null;
+  sharpe?: number | null;
+  sortino?: number | null;
+  avg_bars_held?: number;
+  max_win_streak?: number;
+  max_loss_streak?: number;
+  total_costs?: number;
+  monthly?: Record<string, number>;
+  by?: Record<"session" | "regime" | "direction" | "exit", Record<string, Group>>;
+  from?: string;
+  to?: string;
+};
+
+export type BTTrade = {
+  signal_t: string; entry_t: string; exit_t: string; direction: "bullish" | "bearish"; setup: string; regime: string;
+  quality: number; volume: number; entry: number; stop: number; target: number; exit: number; reason: string;
+  gross: number; costs: number; net: number; risk_amount: number; r: number; mfe_r: number; mae_r: number; bars_held: number;
+};
+
+export type GateItem = { name: string; passed: boolean; value: string; requirement: string };
+
+export type BTReport = {
+  data: { bars: number; timeframe: string; start: string; end: string; sources: string[]; news_windows: number };
+  params: Record<string, unknown>;
+  costs: Record<string, number>;
+  assumptions: Record<string, string>;
+  spec: { source: string; commission: string; contract_size: string };
+  risk_config_hash: string;
+  signals: number;
+  rejected_by_risk_engine: Record<string, number>;
+  summary: BTSummary;
+  stress_costs_150: BTSummary;
+  folds: BTSummary[];
+  walk_forward: {
+    periods: { period: number; params: { stop_buffer_atr: number; min_quality: number } | null; reason?: string; train_expectancy_r?: number; test_trades?: number }[];
+    oos: BTSummary;
+  };
+  sensitivity: { stop_buffer_atr: number; min_quality: number; trades: number; expectancy_r: number | null; profit_factor: number | null }[];
+  monte_carlo: { runs: number; max_dd_median_pct?: number; max_dd_p95_pct?: number; prob_dd_over_pct?: number; prob_dd_over?: number };
+  validation: { validated: boolean; items: GateItem[] };
+  equity: [string, number][];
+  drawdown: [string, number][];
+  trades: BTTrade[];
+};
+
+export type BacktestListItem = {
+  id: number; created_at: string; created_by: string; status: "running" | "done" | "error"; error: string | null;
+  request: BacktestRequest; trades: number | null; expectancy_r: number | null; profit_factor: number | null;
+  validated: boolean | null; data: BTReport["data"] | null;
+};
+
+export type BacktestDetail = {
+  id: number; status: "running" | "done" | "error"; error: string | null; request: BacktestRequest;
+  report: BTReport | null; created_at: string; finished_at: string | null;
+};
+
+/** Backend datetimes may come as "YYYY-MM-DD HH:MM:SS+00:00" (report JSON) — normalise for Date. */
+export function toDate(s: string): Date {
+  return new Date(s.includes("T") ? s : s.replace(" ", "T"));
+}

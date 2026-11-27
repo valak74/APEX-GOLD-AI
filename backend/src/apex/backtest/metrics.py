@@ -16,6 +16,8 @@ import numpy as np
 from apex.analysis.stats import wilson
 from apex.backtest.engine import BTTrade
 
+MIN_DAYS_RATIO = 20  # Sharpe/Sortino on fewer trading days are noise: reported as None
+
 
 def _session(t: datetime) -> str:
     h = t.hour
@@ -71,12 +73,14 @@ def summarize(
         daily[t.exit_t.strftime("%Y-%m-%d")] += t.net
     dr = np.array(list(daily.values())) / initial
     sharpe = (
-        float(dr.mean() / dr.std(ddof=1) * math.sqrt(252)) if len(dr) > 1 and dr.std(ddof=1) > 0 else None
+        float(dr.mean() / dr.std(ddof=1) * math.sqrt(252))
+        if len(dr) >= MIN_DAYS_RATIO and dr.std(ddof=1) > 0
+        else None
     )
     downside = dr[dr < 0]
     sortino = (
         float(dr.mean() / downside.std(ddof=1) * math.sqrt(252))
-        if len(downside) > 1 and downside.std(ddof=1) > 0
+        if len(dr) >= MIN_DAYS_RATIO and len(downside) > 1 and downside.std(ddof=1) > 0
         else None
     )
     lo, hi = bootstrap_ci(r)
