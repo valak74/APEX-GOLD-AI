@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { AnalysisCard } from "@/components/AnalysisCard";
 import { CalendarCard } from "@/components/CalendarCard";
+import { MacroCard } from "@/components/MacroCard";
 import { AccountCard, PositionsCard, QualityCard } from "@/components/cards";
 import { RiskPanel } from "@/components/RiskPanel";
 import { Header } from "@/components/Header";
@@ -18,6 +19,7 @@ import {
   type CalEvent,
   type Context,
   type Lockout,
+  type MacroContext,
   type Opportunity,
   type LiveQuote,
   type Me,
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [riskStatus, setRiskStatus] = useState<RiskStatus | null>(null);
+  const [macro, setMacro] = useState<MacroContext | null>(null);
 
   const loadSlow = useCallback(async () => {
     try {
@@ -76,6 +79,7 @@ export default function Dashboard() {
     setCtx(await api<Context>("/analysis/context").catch(() => null));
     setLockout(await api<Lockout>("/calendar/lockout").catch(() => null));
     setEvents(await api<CalEvent[]>("/calendar/upcoming").catch(() => []));
+    setMacro(await api<MacroContext>("/macro/context").catch(() => null));
   }, 20000);
 
   usePoll(async () => {
@@ -124,6 +128,7 @@ export default function Dashboard() {
           )}
           <PositionsCard positions={positions} ccy={account.currency} />
           <AnalysisCard ctx={ctx} />
+          <MacroCard m={macro} />
           <CalendarCard lockout={lockout} events={events} />
         </div>
         <aside className="space-y-4 xl:col-span-4">

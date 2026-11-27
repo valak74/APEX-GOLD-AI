@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { SETUP_FR, toDate, type CompRow, type DiagDetail, type DiagReport, type ExitRow, type Setup } from "@/lib/api";
 import { Badge, Card, Segmented } from "../ui";
 
-const KEY_FR: Record<string, string> = { tout: "Ensemble", "séance": "Séance", "régime": "Régime", "volatilité": "Volatilité", "tendance de fond": "Tendance de fond" };
+const KEY_FR: Record<string, string> = { tout: "Ensemble", "séance": "Séance", "régime": "Régime", "volatilité": "Volatilité", "tendance de fond": "Tendance de fond",
+  "taux réels (5 j)": "Taux réels (5 j)", "dollar (5 j)": "Dollar (5 j)", "spéculateurs (COT)": "Spéculateurs (COT)", "jour d'annonce": "Jour d'annonce" };
 const fr2 = (v: number | null | undefined, d = 2) =>
   v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 const day = (s: string) => toDate(s).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });

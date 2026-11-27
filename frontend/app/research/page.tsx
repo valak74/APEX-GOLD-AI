@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/Header";
+import { CostCalibration } from "@/components/research/CostCalibration";
 import { DiagnosticReport } from "@/components/research/DiagnosticReport";
 import { Badge, Card } from "@/components/ui";
 import { api, ApiError, toDate, type DiagDetail, type DiagListItem, type Holdout, type LiveQuote, type Lockout, type Me, type SystemStatus } from "@/lib/api";
@@ -107,6 +108,7 @@ export default function ResearchPage() {
               <p className="text-sm text-muted">Sera fixée automatiquement (6 derniers mois) dès qu&apos;au moins 60 jours d&apos;historique seront importés.</p>
             )}
           </Card>
+          <CostCalibration />
           <Card title="Nouveau diagnostic" right={<span className="text-[11px] text-faint">aucun ordre · aucun réglage à optimiser</span>}>
             <div className="mb-1 text-xs text-muted">Unités de temps</div>
             <div className="flex gap-1.5">

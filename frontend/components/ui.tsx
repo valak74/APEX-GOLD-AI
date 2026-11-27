@@ -67,11 +67,12 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 /** Signed value with arrow — never colour alone. */
 export function Delta({ value, suffix = "", digits = 2 }: { value: number | null; suffix?: string; digits?: number }) {
   if (value === null || Number.isNaN(value)) return <span className="text-muted">—</span>;
-  const up = value > 0, down = value < 0;
+  const eps = 0.5 * 10 ** -digits; // never show "−0,00"
+  const up = value >= eps, down = value <= -eps;
   return (
     <span className={`num ${up ? "text-up" : down ? "text-down" : "text-muted"}`}>
       {up ? "▲ +" : down ? "▼ −" : ""}
-      {Math.abs(value).toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}
+      {(up || down ? Math.abs(value) : 0).toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}
       {suffix}
     </span>
   );

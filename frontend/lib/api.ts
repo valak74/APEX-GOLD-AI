@@ -434,3 +434,14 @@ export type DiagListItem = {
 };
 
 export type DiagDetail = { id: number; status: "running" | "done" | "error"; error: string | null; report: DiagReport | null; created_at: string };
+
+// --------------------------------------------------------------------------- macro
+export type MacroSeries = {
+  key: string; label: string; unit: string; value: number; as_of: string; available_at: string;
+  change: number | null; change_window: string; percentile_3y: number | null;
+};
+export type MacroContext = { at: string; series: MacroSeries[]; labels: Record<string, string>; fred_configured: boolean };
+export type CostProfile = {
+  hours: { hour: number; live: number | null; hist: number | null }[];
+  live_bars: number; hist_bars: number; ratio: number | null; min_live_bars: number; note: string;
+};
