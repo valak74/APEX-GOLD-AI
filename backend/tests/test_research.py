@@ -143,3 +143,15 @@ def test_planted_edge_is_found() -> None:
     ]
     assert hits and all(r["mean_excess_atr"] > 0 for r in hits)
     assert any("Balayage d'un sommet/creux" in f for f in rep["findings"])
+
+
+def test_macro_conditions_are_tested_like_the_others() -> None:
+    class Fake:
+        def labels(self, t: datetime) -> dict[str, str]:
+            return {"taux réels (5 j)": "en hausse" if t.day % 2 else "en baisse", "jour d'annonce": "non"}
+
+    c, _, _ = walk(12000, 3)
+    rep = diagnose(c, np.full(len(c), 0.25), PAPER_XAUUSD_SPEC, timeframes=("5m",), macro=Fake())
+    keys = {r["condition_key"] for r in rep["components"]}
+    assert {"taux réels (5 j)", "jour d'annonce", "séance"} <= keys
+    assert not [r for r in rep["components"] if r["retained"]]  # random walk: macro labels change nothing

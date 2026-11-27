@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -251,3 +252,30 @@ class HoldoutRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_by: Mapped[str] = mapped_column(String(320))
     note: Mapped[str] = mapped_column(Text)
+
+
+class MacroObservation(Base):
+    """Macro / positioning time series (FRED, CFTC). ``available_at`` = when the value could have been known
+    (publication time, conservative): analyses and backtests only ever use values with available_at ≤ t."""
+
+    __tablename__ = "macro_observations"
+    __table_args__ = {"schema": "intel"}
+
+    series: Mapped[str] = mapped_column(String(40), primary_key=True)
+    obs_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    value: Mapped[Decimal] = mapped_column(Numeric(20, 6))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    source: Mapped[str] = mapped_column(String(20))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SymbolSpecRow(Base):
+    """Last contract specification received from the broker (commission, sizes), reused offline."""
+
+    __tablename__ = "symbol_specs"
+    __table_args__ = {"schema": "market"}
+
+    symbol: Mapped[str] = mapped_column(String(16), primary_key=True)
+    source: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

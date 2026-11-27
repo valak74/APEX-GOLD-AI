@@ -95,7 +95,7 @@ async def backtest_cli(setup: str, timeframe: str, start: str | None, end: str |
     from datetime import UTC, datetime
 
     from apex.backtest.service import BacktestRequest, run_backtest
-    from apex.broker.factory import PAPER_XAUUSD_SPEC
+    from apex.market.specs import load_spec
     from apex.risk.config import RiskConfig
 
     req = BacktestRequest(
@@ -106,9 +106,13 @@ async def backtest_cli(setup: str, timeframe: str, start: str | None, end: str |
     )
     engine = make_engine(get_settings().database_url)
     try:
-        rep = await run_backtest(
-            make_sessionmaker(engine), req, PAPER_XAUUSD_SPEC, RiskConfig(), "placeholder"
-        )
+        maker = make_sessionmaker(engine)
+        spec, src = await load_spec(maker)
+        if src == "placeholder":
+            print(
+                "Attention : commission provisoire (connectez cTrader une fois pour mémoriser la vraie fiche)"
+            )
+        rep = await run_backtest(maker, req, spec, RiskConfig(), src, "cli")
     finally:
         await engine.dispose()
     if "error" in rep:
@@ -127,14 +131,40 @@ async def backtest_cli(setup: str, timeframe: str, start: str | None, end: str |
     return 0
 
 
+async def macro_sync_cli(start: str | None) -> int:
+    from datetime import date
+
+    from apex.intel.macro import sync_macro
+
+    st = get_settings()
+    engine = make_engine(st.database_url)
+    try:
+        rep = await sync_macro(
+            make_sessionmaker(engine),
+            st.fred_api_key.get_secret_value() if st.fred_api_key else None,
+            date.fromisoformat(start) if start else st.macro_history_start,
+        )
+    finally:
+        await engine.dispose()
+    for k, n in rep.observations.items():
+        print(f"  {k}: {n} observations")
+    for k, n in rep.events.items():
+        print(f"  {k}: {n} dates de publication")
+    for e in rep.errors:
+        print(f"  ! {e}")
+    return 0 if rep.observations or rep.events else 1
+
+
 async def diagnose_cli(timeframes: list[str]) -> int:
-    from apex.broker.factory import PAPER_XAUUSD_SPEC
+    from apex.market.specs import load_spec
     from apex.research.service import DiagnosticRequest, run_diagnostic
 
     req = DiagnosticRequest.model_validate({"timeframes": timeframes})
     engine = make_engine(get_settings().database_url)
     try:
-        rep = await run_diagnostic(make_sessionmaker(engine), req, PAPER_XAUUSD_SPEC, "placeholder", "cli")
+        maker = make_sessionmaker(engine)
+        spec, src = await load_spec(maker)
+        rep = await run_diagnostic(maker, req, spec, src, "cli")
     finally:
         await engine.dispose()
     if "error" in rep:
@@ -186,6 +216,8 @@ def main(argv: list[str] | None = None) -> None:
     bt.add_argument("--to", dest="end", default=None)
     dg = sub.add_parser("diagnose", help="edge diagnostics on research history (before the holdout)")
     dg.add_argument("--timeframes", default="5m,15m,1h")
+    ms = sub.add_parser("macro-sync", help="fetch FRED series + release dates and CFTC COT (point-in-time)")
+    ms.add_argument("--from", dest="start", default=None)
     srv = sub.add_parser("serve", help="run the API")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -217,6 +249,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(asyncio.run(backtest_cli(a.setup, a.timeframe, a.start, a.end)))
     elif a.cmd == "diagnose":
         sys.exit(asyncio.run(diagnose_cli(a.timeframes.split(","))))
+    elif a.cmd == "macro-sync":
+        sys.exit(asyncio.run(macro_sync_cli(a.start)))
     elif a.cmd == "serve":
         import uvicorn
 

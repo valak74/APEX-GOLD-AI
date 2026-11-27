@@ -67,3 +67,4 @@ class AppState:
     market: MarketFeed = field(default_factory=MarketFeed)
     scanner: Any = None  # OpportunityScanner (set at startup)
     risk: Any = None  # RiskService (set at startup)
+    macro: Any = None  # MacroService (set at startup)

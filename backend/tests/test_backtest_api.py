@@ -66,7 +66,7 @@ async def env() -> AsyncIterator[tuple[httpx.AsyncClient, Any]]:
                 await ses.execute(
                     text(
                         "TRUNCATE core.users, core.audit_log, market.bars, intel.economic_events, "
-                        "research.backtests, research.holdout RESTART IDENTITY"
+                        "research.backtests, research.holdout, market.symbol_specs RESTART IDENTITY"
                     )
                 )
                 ses.add(User(email="adm@x.io", password_hash=hash_password(PW), role=Role.ADMIN))
@@ -186,3 +186,38 @@ async def test_diagnostic_endpoints(env: Any) -> None:
     assert (await c.get("/backtests")).json() == []  # diagnostics are not listed as backtests
     assert (await c.get(f"/backtests/{d['id']}")).status_code == 404
     assert (await c.post("/research/diagnostics", json={"timeframes": []})).status_code == 422
+
+
+async def test_cost_calibration_and_macro_endpoints(env: Any) -> None:
+    from apex.broker.factory import PAPER_XAUUSD_SPEC
+    from apex.market.specs import load_spec, save_spec
+
+    c, st = env
+    await c.post("/auth/login", json={"email": "view@x.io", "password": PW})
+    cal = (await c.get("/macro/costs")).json()
+    assert cal["ratio"] is None and "pas encore assez" in cal["note"]  # no live bars yet
+    now = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+    async with st.sessionmaker() as ses:  # one week of live 5m bars, spread twice Dukascopy's
+        for i in range(2100):
+            b = _bar("ctrader", 0, 4000, 4001, 3999, 4000)
+            b.start, b.spread_avg = now - timedelta(minutes=5 * (i + 1)), D("0.50")
+            ses.add(b)
+        await ses.commit()
+    cal = (await c.get("/macro/costs")).json()
+    assert cal["ratio"] == pytest.approx(2.0) and cal["live_bars"] == 2100
+    _, spreads, _ = await load_history(
+        st.sessionmaker, "5m", START, START + timedelta(days=2), hist_spread_mult=2.0
+    )
+    assert spreads[0] == pytest.approx(0.5)  # Dukascopy spreads rescaled to the broker's
+    ctx = (await c.get("/macro/context")).json()
+    assert ctx["series"] == [] and ctx["fred_configured"] is False
+    assert (await c.get("/macro/status")).json()["series"] == []
+    assert (await c.post("/macro/sync")).status_code == 403  # admin only
+    # the broker spec is remembered for offline tools
+    spec, src = await load_spec(st.sessionmaker)
+    assert src == "placeholder"
+    await save_spec(
+        st.sessionmaker, PAPER_XAUUSD_SPEC.model_copy(update={"commission_rate": D("3.0")}), "ctrader:IC"
+    )
+    spec, src = await load_spec(st.sessionmaker)
+    assert src == "ctrader:IC" and spec.commission_rate == D("3.0")

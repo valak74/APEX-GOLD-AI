@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 import apex
-from apex.api.routes import analysis, auth, backtests, brokers, research, risk, system
+from apex.api.routes import analysis, auth, backtests, brokers, macro, research, risk, system
 from apex.api.state import AppState, RateLimiter
 from apex.broker.factory import build_broker
 from apex.core.config import Settings, get_settings
@@ -50,6 +50,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.apex.risk = RiskService(app.state.apex)
         if settings.risk_guard_enabled:
             app.state.apex.risk.start()
+        from apex.api.macro_service import MacroService
+
+        app.state.apex.macro = MacroService(app.state.apex)
+        if settings.macro_sync_enabled and settings.environment != "test":
+            app.state.apex.macro.start()
         log.info(
             "startup",
             mode=broker.mode.value,
@@ -60,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await app.state.apex.macro.stop()
             await app.state.apex.risk.stop()
             await app.state.apex.scanner.stop()
             await app.state.apex.market.stop()
@@ -97,4 +103,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(risk.router)
     app.include_router(backtests.router)
     app.include_router(research.router)
+    app.include_router(macro.router)
     return app

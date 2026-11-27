@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from apex.backtest.service import load_history
 from apex.db.models import BacktestRow
 from apex.domain.models import SymbolSpec
+from apex.intel.macro import load_context
+from apex.research.costs import spread_profile
 from apex.research.diagnostics import diagnose
 from apex.research.holdout import ensure_holdout
 
@@ -38,7 +40,11 @@ async def run_diagnostic(
     actor: str = "system",
 ) -> dict[str, Any]:
     hold = await ensure_holdout(maker, actor)
-    c, spreads, sources = await load_history(maker, "5m", req.start, hold.start if hold else None)
+    calib = await spread_profile(maker)
+    macro = await load_context(maker)
+    c, spreads, sources = await load_history(
+        maker, "5m", req.start, hold.start if hold else None, hist_spread_mult=calib["ratio"] or 1.0
+    )
     if len(c) < 1000:
         return {"error": f"historique insuffisant : {len(c)} bougies 5m de recherche (importez Dukascopy)"}
     async with maker() as s:
@@ -49,7 +55,11 @@ async def run_diagnostic(
                 .where(BacktestRow.kind == "diagnostic", BacktestRow.status == "done")
             )
         ).scalar_one()
-    rep = await asyncio.to_thread(diagnose, c, spreads, spec, tuple(req.timeframes), req.slippage)
+    rep = await asyncio.to_thread(
+        diagnose, c, spreads, spec, tuple(req.timeframes), req.slippage, macro=macro if macro.series else None
+    )
+    rep["cost_calibration"] = {"spread_ratio": calib["ratio"], "note": calib["note"]}
+    rep["macro_series"] = sorted(macro.series)
     rep["data"] = {
         "bars_5m": len(c),
         "start": c.t[0],

@@ -62,7 +62,10 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 "tests/**" = ["S105", "S106", "N817"]
 "src/apex/db/models.py" = ["RUF012"]
 "src/apex/intel/explainer.py" = ["E501"]  # prompt text
-"src/apex/research/diagnostics.py" = ["E501"]  # French report sentences
+"src/apex/research/diagnostics.py" = ["E501"]
+"src/apex/intel/macro.py" = ["E501"]
+"src/apex/research/costs.py" = ["E501"]
+"src/apex/market/specs.py" = ["E501"]  # long API parameter lines and French labels  # French report sentences
 "src/apex/broker/ctrader/setup_cli.py" = ["ASYNC250"]  # interactive terminal prompts
 "migrations/**" = ["ALL"]
 

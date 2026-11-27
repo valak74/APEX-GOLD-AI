@@ -19,6 +19,7 @@ from apex.backtest.signals import StrategyParams
 from apex.db.models import BacktestRow, BarRow, EconomicEvent
 from apex.domain.models import SymbolSpec, utcnow
 from apex.intel.calendar import GOLD_SENSITIVE, LOCKOUT_IMPORTANCE
+from apex.research.costs import spread_profile
 from apex.research.holdout import ensure_holdout
 from apex.risk.config import RiskConfig
 
@@ -48,7 +49,9 @@ async def load_history(
     start: datetime | None,
     end: datetime | None,
     max_bars: int = 400_000,
+    hist_spread_mult: float = 1.0,
 ) -> tuple[Candles, np.ndarray, list[str]]:
+    """``hist_spread_mult`` rescales the historical source's spreads to the broker's (cost calibration)."""
     q = select(BarRow).where(BarRow.symbol == "XAUUSD", BarRow.timeframe == timeframe)
     if start:
         q = q.where(BarRow.start >= start)
@@ -62,7 +65,13 @@ async def load_history(
         if cur is None or SOURCE_PRIORITY.get(r.source, 9) < SOURCE_PRIORITY.get(cur.source, 9):
             best[r.start] = r
     ordered = [best[k] for k in sorted(best)][-max_bars:]
-    spreads = np.array([float(r.spread_avg) for r in ordered]) if ordered else np.array([])
+    spreads = (
+        np.array(
+            [float(r.spread_avg) * (hist_spread_mult if r.source == "dukascopy" else 1.0) for r in ordered]
+        )
+        if ordered
+        else np.array([])
+    )
     return Candles.from_rows(ordered, timeframe), spreads, sorted({r.source for r in ordered})
 
 
@@ -123,7 +132,9 @@ async def run_backtest(
         start, end = hold.start, None
     elif hold is not None:
         end = min(end, hold.start) if end else hold.start
-    c, spreads, sources = await load_history(maker, req.timeframe, start, end)
+    calib = await spread_profile(maker)
+    ratio = calib["ratio"] or 1.0
+    c, spreads, sources = await load_history(maker, req.timeframe, start, end, hist_spread_mult=ratio)
     if len(c) < 200:
         return {"error": f"historique insuffisant : {len(c)} bougies {req.timeframe} (importez Dukascopy)"}
     trials = await prior_trials(maker, req.setup, req.timeframe)
@@ -156,6 +167,7 @@ async def run_backtest(
         "contract_size": str(spec.contract_size),
     }
     report["risk_config_hash"] = cfg.config_hash()
+    report["cost_calibration"] = {"spread_ratio": calib["ratio"], "note": calib["note"]}
     out: dict[str, Any] = json.loads(json.dumps(report, default=str))
     return out
 

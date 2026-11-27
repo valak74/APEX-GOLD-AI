@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from statistics import NormalDist
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -129,6 +129,13 @@ def stable(h: list[float | None], sign: float) -> bool:
     return all(v is not None and v * sign > 0 for v in h)
 
 
+BASE_KEYS = ("séance", "régime", "volatilité", "tendance de fond")
+
+
+class MacroLike(Protocol):
+    def labels(self, t: datetime) -> dict[str, str]: ...
+
+
 @dataclass
 class Event:
     idx: int
@@ -191,7 +198,9 @@ COMPONENT_FR = {
 }
 
 
-def component_tests(c: Candles, comps: dict[str, list[Event]], st: Any) -> list[dict[str, Any]]:
+def component_tests(
+    c: Candles, comps: dict[str, list[Event]], st: Any, macro: MacroLike | None = None
+) -> list[dict[str, Any]]:
     n = len(c)
     a = atr(c)
     tf = c.timeframe
@@ -217,7 +226,7 @@ def component_tests(c: Candles, comps: dict[str, list[Event]], st: Any) -> list[
             "régime": REGIME_GROUP.get(regimes[i].label, "indéterminé"),
             "volatilité": vol,
             "tendance de fond": "alignée" if hd == d else "neutre" if hd == "none" else "contraire",
-        }
+        } | (macro.labels(c.t[i]) if macro is not None else {})
 
     # forward returns in ATR units and the unconditional drift per horizon (long direction)
     fwd: dict[int, np.ndarray] = {}
@@ -235,10 +244,11 @@ def component_tests(c: Candles, comps: dict[str, list[Event]], st: Any) -> list[
         evs = [e for e in evs if e.idx < n and not np.isnan(a[e.idx])]
         labels = [(e, cond(e.idx, e.direction)) for e in evs]
         groups: list[tuple[str, str, list[Event]]] = [("tout", "tout", evs)]
-        for key in ("séance", "régime", "volatilité", "tendance de fond"):
-            vals = sorted({lab[key] for _, lab in labels})
+        keys = sorted({k for _, lab in labels for k in lab}, key=lambda k: (k not in BASE_KEYS, k))
+        for key in keys:
+            vals = sorted({lab[key] for _, lab in labels if key in lab})
             for v in vals:
-                groups.append((key, v, [e for e, lab in labels if lab[key] == v]))
+                groups.append((key, v, [e for e, lab in labels if lab.get(key) == v]))
         for key, val, sub in groups:
             for h in hz:
                 by_idx = {e.idx: e for e in sub}
@@ -469,6 +479,7 @@ def diagnose(
     slippage: float = 0.05,
     setups: Sequence[str] = ("liquidity_sweep_reversal", "trend_pullback"),
     progress: Callable[[str], None] | None = None,
+    macro: MacroLike | None = None,
 ) -> dict[str, Any]:
     costs: list[dict[str, Any]] = []
     comps: list[dict[str, Any]] = []
@@ -484,7 +495,7 @@ def diagnose(
         costs.append(cost_burden(c, sp, spec, slippage))
         found, st = detect_components(c)
         counts[tf] = {k: len(v) for k, v in found.items()}
-        comps += component_tests(c, found, st)
+        comps += component_tests(c, found, st, macro)
         exits += exit_tests(c, sp, spec, slippage, setups)
     cost_atr = {x["timeframe"]: x["roundtrip_cost"] / x["median_atr"] for x in costs if "median_atr" in x}
     tested = [r for r in exits if "p" in r]
@@ -520,6 +531,7 @@ def diagnose(
             "correction": f"Benjamini–Hochberg, FDR {int(FDR * 100)} %, séparément sur les {len(comps)} tests d'éléments et les {len(tested)} tests de sorties",
             "min_sample": f"un résultat n'est retenu qu'avec au moins {MIN_FINDING_N} événements indépendants",
             "stability": "un résultat ne compte que s'il a le même signe sur les deux moitiés de la période de recherche",
+            "macro": "conditions macro (taux réels, dollar, COT, jour d'annonce) évaluées avec les seules données publiées à l'instant de chaque événement",
             "volatility_terciles": "seuils calculés sur tout l'échantillon de recherche (étiquetage descriptif)",
             "exits": "entrée à l'ouverture suivante, stop prioritaire, coûts inclus, sans moteur de risque",
         },

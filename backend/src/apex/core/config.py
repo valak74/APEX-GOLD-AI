@@ -6,6 +6,7 @@ Secrets are typed as ``SecretStr`` so they never appear in reprs or logs.
 
 from __future__ import annotations
 
+from datetime import date
 from functools import lru_cache
 from typing import Literal
 
@@ -55,6 +56,12 @@ class Settings(BaseSettings):
     llm_enabled: bool = False
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high"] = "low"
+
+    # Fundamental data (FRED needs a free key; CFTC COT needs none). Synced in the background, never in tests.
+    fred_api_key: SecretStr | None = None
+    macro_sync_enabled: bool = True
+    macro_sync_interval_s: int = 6 * 3600
+    macro_history_start: date = date(2018, 1, 1)
 
     log_level: str = "INFO"
     log_json: bool = True

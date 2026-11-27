@@ -39,6 +39,7 @@ class MarketFeed:
         self.adapter: CTraderAdapter | None = None
         self.last: dict[str, Quote] = {}
         self.spec_source = "placeholder"
+        self._maker: async_sessionmaker[AsyncSession] | None = None
         self.broker_name: str | None = None
         self._task: asyncio.Task[None] | None = None
         self.quality = DataQualityMonitor()
@@ -138,6 +139,7 @@ class MarketFeed:
             await self.warm_up(maker)
         except Exception as e:  # warm-up is best effort; never block the feed
             log.warning("bars_warm_up_failed", error=type(e).__name__)
+        self._maker = maker
         self.recorder = MarketRecorder(maker, source=self.source)
         self.recorder.start()
         self.adapter.add_quote_listener(self.on_quote)
@@ -162,6 +164,13 @@ class MarketFeed:
         if isinstance(paper, SimBroker):
             paper.set_symbol_spec(spec)
             self.spec_source = f"ctrader:{self.adapter.broker_name or 'broker'}"
+        if self._maker is not None:
+            from apex.market.specs import save_spec
+
+            try:  # remembered for offline tools (CLI backtests, research): real commission, not a placeholder
+                await save_spec(self._maker, spec, f"ctrader:{self.adapter.broker_name or 'broker'}")
+            except Exception as e:  # never block the feed on this
+                log.warning("spec_save_failed", error=type(e).__name__)
         log.info("market_feed_connected", source=self.source, broker=self.broker_name)
 
     async def stop(self) -> None:
