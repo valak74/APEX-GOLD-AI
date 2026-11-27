@@ -14,9 +14,10 @@ import apex
 from apex.api.deps import ReAuth, SessionDep, StateDep, require_role, verify_reauth
 from apex.core.fx import FxConverter
 from apex.db.audit import append_audit
-from apex.db.models import RiskConfigVersion, User
+from apex.db.models import BarRow, RiskConfigVersion, User
 from apex.domain.enums import CloseReason, Role, Side
 from apex.domain.models import AccountInfo, ClosedTrade, Position, Quote, SymbolSpec, utcnow
+from apex.market.sessions import ALL_TIMEFRAMES
 from apex.risk.config import RiskConfig
 from apex.risk.sizing import SizingInput, SizingResult, compute_position_size
 
@@ -268,3 +269,72 @@ async def market_spec(_: Viewer, state: StateDep) -> SpecOut:
         spec=spec,
         commission_per_lot_side_at_price=spec.commission_for(Decimal(1), q.mid) if q else None,
     )
+
+
+class BarOut(BaseModel):
+    start: datetime
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    spread_avg: Decimal
+    spread_max: Decimal
+    tick_count: int
+    complete: bool
+
+
+@router.get("/market/bars", response_model=list[BarOut])
+async def market_bars(
+    _: Viewer,
+    state: StateDep,
+    session: SessionDep,
+    timeframe: str = "5m",
+    limit: int = 300,
+    symbol: str = "XAUUSD",
+) -> list[BarOut]:
+    """Completed bars (database + in-memory) followed by the current partial bar. Oldest first."""
+    if timeframe not in ALL_TIMEFRAMES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"timeframe must be one of {ALL_TIMEFRAMES}"
+        )
+    limit = max(1, min(limit, 2000))
+    rows = (
+        (
+            await session.execute(
+                select(BarRow)
+                .where(BarRow.symbol == symbol, BarRow.timeframe == timeframe)
+                .order_by(BarRow.start.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_start: dict[datetime, BarOut] = {
+        r.start: BarOut(
+            start=r.start,
+            open=r.open,
+            high=r.high,
+            low=r.low,
+            close=r.close,
+            spread_avg=r.spread_avg,
+            spread_max=r.spread_max,
+            tick_count=r.tick_count,
+            complete=True,
+        )
+        for r in rows
+    }
+    feed = state.market
+    mem = list(feed.recent.get(timeframe, ()))
+    partial = feed.bars.partial(timeframe) if symbol == feed.bars.symbol else None
+    for b in [*mem, *([partial] if partial else [])]:
+        by_start[b.start] = BarOut(
+            **{k: v for k, v in b.as_dict().items() if k not in ("symbol", "timeframe")}
+        )
+    return [by_start[k] for k in sorted(by_start)][-limit:]
+
+
+@router.get("/market/quality")
+async def market_quality(_: Viewer, state: StateDep, symbol: str = "XAUUSD") -> dict[str, Any]:
+    r = state.market.quality.report(symbol)
+    return {**r.__dict__, "spread": r.spread, "spread_median": r.spread_median}

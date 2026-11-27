@@ -1,7 +1,8 @@
 """Market data feed supervisor for the API process.
 
-Starts the configured source (cTrader demo account) in the background, forwards every quote to the
-paper broker, and replaces the paper broker's placeholder XAUUSD specification with the broker's real one.
+Starts the configured source (cTrader demo account) in the background. Every quote goes through
+``on_quote``: data-quality monitor -> bar builder -> recorder (ticks + completed bars) -> paper broker.
+The paper broker's placeholder XAUUSD specification is replaced by the broker's real one.
 A failing source never blocks the API: it is reported in the status and retried.
 """
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from collections import deque
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +24,9 @@ from apex.broker.sim import SimBroker
 from apex.core.config import Settings
 from apex.core.logging import get_logger
 from apex.domain.models import Quote, SymbolSpec, utcnow
+from apex.market.bars import Bar, BarBuilder
+from apex.market.quality import DataQualityMonitor
+from apex.market.recorder import MarketRecorder
 
 log = get_logger(__name__)
 
@@ -36,9 +41,28 @@ class MarketFeed:
         self.spec_source = "placeholder"
         self.broker_name: str | None = None
         self._task: asyncio.Task[None] | None = None
+        self.quality = DataQualityMonitor()
+        self.bars = BarBuilder("XAUUSD")
+        self.recent: dict[str, deque[Bar]] = {}
+        self.recorder: MarketRecorder | None = None
+        self.paper: Any = None
+
+    async def on_quote(self, q: Quote) -> None:
+        self.quality.observe(q)
+        if q.symbol == "XAUUSD":
+            for bar in self.bars.update(q):
+                self.recent.setdefault(bar.timeframe, deque(maxlen=1000)).append(bar)
+                if self.recorder:
+                    self.recorder.add_bar(bar)
+        if self.recorder:
+            self.recorder.add_quote(q)
+        self.last[q.symbol] = q
+        if isinstance(self.paper, SimBroker):
+            await self.paper.on_quote(q)
 
     async def start(self, settings: Settings, maker: async_sessionmaker[AsyncSession], paper: Any) -> None:
         self.source = settings.market_data_source
+        self.paper = paper
         if self.source == "none":
             return
         acc_id = settings.ctrader_broker_account_id
@@ -66,12 +90,9 @@ class MarketFeed:
             on_tokens_refreshed=token_saver(maker, mk, acc_id),
         )
 
-        async def forward(q: Quote) -> None:
-            self.last[q.symbol] = q
-            if isinstance(paper, SimBroker):
-                await paper.on_quote(q)
-
-        self.adapter.add_quote_listener(forward)
+        self.recorder = MarketRecorder(maker, source=self.source)
+        self.recorder.start()
+        self.adapter.add_quote_listener(self.on_quote)
         self._task = asyncio.create_task(self._run(paper))
 
     async def _run(self, paper: Any) -> None:
@@ -102,6 +123,8 @@ class MarketFeed:
                 await self._task
         if self.adapter:
             await self.adapter.disconnect()
+        if self.recorder:
+            await self.recorder.stop()
 
     def describe(self, now: datetime | None = None) -> dict[str, Any]:
         now = now or utcnow()
@@ -116,4 +139,5 @@ class MarketFeed:
             "broker": self.broker_name,
             "spec_source": self.spec_source,
             "last_quote_age_s": round((now - q.ts).total_seconds(), 1) if q else None,
+            "recorder": self.recorder.describe() if self.recorder else None,
         }

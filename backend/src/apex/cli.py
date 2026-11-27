@@ -38,6 +38,32 @@ async def create_user(email: str, role: Role, password: str) -> None:
     print(f"created {role.value} {email}")
 
 
+async def import_dukascopy(symbol: str, start_s: str, end_s: str, force: bool) -> int:
+    from datetime import UTC, datetime
+
+    from apex.market.dukascopy import import_ticks, rebuild_bars
+
+    start = datetime.fromisoformat(start_s).replace(tzinfo=UTC)
+    end = datetime.fromisoformat(end_s).replace(tzinfo=UTC)
+    engine = make_engine(get_settings().database_url)
+    maker = make_sessionmaker(engine)
+    try:
+        rep = await import_ticks(maker, symbol, start, end, force=force)
+        print(
+            f"heures: {rep.hours_total} · importées {rep.hours_imported} · vides {rep.hours_empty} · "
+            f"déjà présentes {rep.hours_skipped_existing} · ticks {rep.ticks}"
+        )
+        for r in rep.rejected[:20]:
+            print(f"  REJETÉ {r}")
+        for f in rep.failed[:20]:
+            print(f"  ÉCHEC téléchargement {f}")
+        bars = await rebuild_bars(maker, "dukascopy", symbol, start, end)
+        print(f"bougies calculées : {bars}")
+        return 1 if rep.rejected or rep.failed else 0
+    finally:
+        await engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="apex")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -58,6 +84,11 @@ def main(argv: list[str] | None = None) -> None:
         "--account", type=int, required=True, help="internal broker account id (from ctrader-setup)"
     )
     cc.add_argument("--seconds", type=int, default=20)
+    imp = sub.add_parser("import-dukascopy", help="import Dukascopy historical ticks and build bars")
+    imp.add_argument("--symbol", default="XAUUSD")
+    imp.add_argument("--from", dest="start", required=True, help="YYYY-MM-DD (UTC)")
+    imp.add_argument("--to", dest="end", required=True, help="YYYY-MM-DD (UTC, exclusive)")
+    imp.add_argument("--force", action="store_true", help="re-download hours already present")
     srv = sub.add_parser("serve", help="run the API")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -81,6 +112,8 @@ def main(argv: list[str] | None = None) -> None:
         from apex.broker.ctrader.setup_cli import check
 
         sys.exit(asyncio.run(check(a.account, a.seconds)))
+    elif a.cmd == "import-dukascopy":
+        sys.exit(asyncio.run(import_dukascopy(a.symbol, a.start, a.end, a.force)))
     elif a.cmd == "serve":
         import uvicorn
 
