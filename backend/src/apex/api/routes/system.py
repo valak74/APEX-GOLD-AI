@@ -1,0 +1,228 @@
+"""Health, system status, account view, kill switch, risk config and position-size calculator."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select, text, update
+
+import apex
+from apex.api.deps import ReAuth, SessionDep, StateDep, require_role, verify_reauth
+from apex.core.fx import FxConverter
+from apex.db.audit import append_audit
+from apex.db.models import RiskConfigVersion, User
+from apex.domain.enums import CloseReason, Role, Side
+from apex.domain.models import AccountInfo, ClosedTrade, Position, Quote, utcnow
+from apex.risk.config import RiskConfig
+from apex.risk.sizing import SizingInput, SizingResult, compute_position_size
+
+router = APIRouter(tags=["system"])
+
+Viewer = Annotated[User, Depends(require_role(Role.VIEWER))]
+Trader = Annotated[User, Depends(require_role(Role.TRADER))]
+Admin = Annotated[User, Depends(require_role(Role.ADMIN))]
+
+
+# --------------------------------------------------------------------------- health
+@router.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok", "version": apex.__version__}
+
+
+@router.get("/health/ready")
+async def ready(state: StateDep, session: SessionDep) -> dict[str, Any]:
+    checks: dict[str, str] = {}
+    try:
+        await session.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:  # report, never raise from a health probe
+        checks["database"] = f"error: {type(e).__name__}"
+    checks["broker"] = "ok" if state.broker.connected else "disconnected"
+    ok = all(v == "ok" for v in checks.values())
+    if not ok:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, checks)
+    return {"status": "ready", "checks": checks}
+
+
+# --------------------------------------------------------------------------- status
+async def active_risk_config(session: SessionDep) -> tuple[RiskConfig, int | None]:
+    row = (
+        await session.execute(select(RiskConfigVersion).where(RiskConfigVersion.active))
+    ).scalar_one_or_none()
+    if row is None:
+        return RiskConfig(), None
+    return RiskConfig.model_validate(row.payload), row.id
+
+
+class SystemStatus(BaseModel):
+    version: str
+    mode: str
+    broker: dict[str, Any]
+    trading_enabled: bool
+    kill_switch_engaged: bool
+    kill_switch_reason: str | None
+    kill_switch_at: datetime | None
+    risk_config_hash: str
+    risk_config_version: int | None
+    market_data: str
+
+
+@router.get("/system/status", response_model=SystemStatus)
+async def system_status(_: Viewer, state: StateDep, session: SessionDep) -> SystemStatus:
+    cfg, ver = await active_risk_config(session)
+    t = state.trading
+    return SystemStatus(
+        version=apex.__version__,
+        mode=state.broker.mode.value,
+        broker={**state.broker.capabilities.model_dump(), "connected": state.broker.connected},
+        trading_enabled=t.trading_enabled,
+        kill_switch_engaged=t.kill_switch_engaged,
+        kill_switch_reason=t.kill_switch_reason,
+        kill_switch_at=t.kill_switch_at,
+        risk_config_hash=cfg.config_hash(),
+        risk_config_version=ver,
+        market_data="not_connected (phase 3)",
+    )
+
+
+@router.get("/account", response_model=AccountInfo)
+async def account(_: Viewer, state: StateDep) -> AccountInfo:
+    try:
+        return await state.broker.get_account_info()
+    except (LookupError, RuntimeError) as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"account unavailable: {e}") from None
+
+
+@router.get("/positions", response_model=list[Position])
+async def positions(_: Viewer, state: StateDep) -> list[Position]:
+    return await state.broker.get_positions()
+
+
+# --------------------------------------------------------------------------- kill switch
+class KillSwitchIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=200)
+    close_positions: bool = True
+
+
+class KillSwitchOut(BaseModel):
+    engaged: bool
+    closed: list[ClosedTrade]
+    errors: list[str]
+
+
+@router.post("/system/kill-switch", response_model=KillSwitchOut)
+async def kill_switch(
+    body: KillSwitchIn, user: Trader, state: StateDep, session: SessionDep
+) -> KillSwitchOut:
+    """Stopping must be easy: trader role, no re-auth. Trading is disabled before anything else."""
+    state.trading.engage(user.email, body.reason)
+    closed: list[ClosedTrade] = []
+    errors: list[str] = []
+    if body.close_positions:
+        try:
+            closed = await state.broker.close_all_positions(CloseReason.KILL_SWITCH)
+        except Exception as e:  # never let a broker error hide that the switch is engaged
+            errors.append(f"{type(e).__name__}: {e}")
+    await append_audit(
+        session,
+        user.email,
+        "kill_switch_engaged",
+        details={"reason": body.reason, "closed": len(closed), "errors": errors},
+    )
+    await session.commit()
+    return KillSwitchOut(engaged=True, closed=closed, errors=errors)
+
+
+@router.post("/system/kill-switch/rearm", status_code=204)
+async def rearm(body: ReAuth, user: Admin, state: StateDep, session: SessionDep) -> None:
+    verify_reauth(user, body, state)
+    state.trading.rearm()
+    await append_audit(session, user.email, "kill_switch_rearmed")
+    await session.commit()
+
+
+# --------------------------------------------------------------------------- risk config
+class RiskConfigOut(BaseModel):
+    version: int | None
+    config_hash: str
+    config: RiskConfig
+
+
+@router.get("/risk/config", response_model=RiskConfigOut)
+async def get_risk_config(_: Viewer, session: SessionDep) -> RiskConfigOut:
+    cfg, ver = await active_risk_config(session)
+    return RiskConfigOut(version=ver, config_hash=cfg.config_hash(), config=cfg)
+
+
+class RiskConfigUpdate(BaseModel):
+    reauth: ReAuth
+    config: RiskConfig
+
+
+@router.put("/risk/config", response_model=RiskConfigOut)
+async def put_risk_config(
+    body: RiskConfigUpdate, user: Admin, state: StateDep, session: SessionDep
+) -> RiskConfigOut:
+    """New immutable version. Human admin only, with password + TOTP. No other write path exists."""
+    verify_reauth(user, body.reauth, state)
+    before, _ = await active_risk_config(session)
+    await session.execute(update(RiskConfigVersion).values(active=False).where(RiskConfigVersion.active))
+    row = RiskConfigVersion(
+        payload=body.config.model_dump(mode="json"),
+        config_hash=body.config.config_hash(),
+        created_by=user.email,
+        active=True,
+    )
+    session.add(row)
+    await session.flush()
+    await append_audit(
+        session,
+        user.email,
+        "risk_config_changed",
+        target=f"risk_config:{row.id}",
+        details={"before": before.model_dump(mode="json"), "after": body.config.model_dump(mode="json")},
+    )
+    await session.commit()
+    return RiskConfigOut(version=row.id, config_hash=row.config_hash, config=body.config)
+
+
+# --------------------------------------------------------------------------- calculator
+class SizeCalcIn(BaseModel):
+    side: Side
+    entry: Decimal = Field(gt=0)
+    stop_loss: Decimal = Field(gt=0)
+    risk_pct: Decimal | None = None  # default: active risk config
+    quote_to_account_rate: Decimal | None = Field(
+        default=None, gt=0, description="Manual USD->account rate for what-if use when no live FX feed exists"
+    )
+
+
+@router.post("/risk/position-size", response_model=SizingResult)
+async def position_size(body: SizeCalcIn, _: Viewer, state: StateDep, session: SessionDep) -> SizingResult:
+    """What-if calculator using the live account. It never places an order."""
+    cfg, _v = await active_risk_config(session)
+    info = await state.broker.get_account_info()
+    spec = await state.broker.get_symbol_spec("XAUUSD")
+    now = utcnow()
+    fx: FxConverter = getattr(state.broker, "fx", FxConverter())
+    if body.quote_to_account_rate is not None and info.currency != spec.quote_ccy:
+        fx = FxConverter(max_age=timedelta(minutes=1))
+        r = body.quote_to_account_rate
+        fx.update(Quote(symbol=spec.quote_ccy + info.currency, bid=r, ask=r, ts=now))
+    inp = SizingInput(
+        side=body.side,
+        entry=body.entry,
+        stop_loss=body.stop_loss,
+        risk_pct=body.risk_pct if body.risk_pct is not None else cfg.risk_per_trade_pct,
+        equity=info.equity,
+        balance=info.balance,
+        free_margin=info.free_margin,
+        leverage=info.leverage,
+        max_volume=cfg.max_volume_lots,
+        min_free_margin_ratio=cfg.min_free_margin_ratio,
+    )
+    return compute_position_size(inp, spec, fx, now)
