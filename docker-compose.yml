@@ -40,6 +40,8 @@ services:
       APEX_COOKIE_SECURE: ${APEX_COOKIE_SECURE:-false}
       APEX_MARKET_DATA_SOURCE: ${APEX_MARKET_DATA_SOURCE:-none}
       APEX_CTRADER_BROKER_ACCOUNT_ID: ${APEX_CTRADER_BROKER_ACCOUNT_ID:-}
+      APEX_LLM_ENABLED: ${APEX_LLM_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db: { condition: service_healthy }
     networks: [internal]

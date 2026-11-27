@@ -20,6 +20,7 @@ export type SystemStatus = {
     spec_source: string;
     last_quote_age_s: number | null;
   };
+  llm_enabled: boolean;
 };
 
 export type LiveQuote = { symbol: string; bid: string; ask: string; spread: string; ts: string; age_s: number };
@@ -207,3 +208,49 @@ export function fmtTime(iso: string | null, withDay = false): string {
   const d = new Date(iso);
   return d.toLocaleString("fr-FR", withDay ? { weekday: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit" });
 }
+
+export type Confluence = { key: string; label: string; ok: boolean; weight: number; detail: string };
+
+export type Narrative = { resume: string; pourquoi: string[]; risques: string[]; invalidation: string; prudence: string; model: string };
+
+export type Opportunity = {
+  id: string;
+  setup: string;
+  setup_label: string;
+  direction: "bullish" | "bearish";
+  timeframe: string;
+  detected_at: string;
+  entry: number;
+  stop: number;
+  targets: number[];
+  risk_reward: number;
+  quality: number;
+  confluences: Confluence[];
+  warnings: string[];
+  blockers: string[];
+  invalidation: string;
+  evidence: {
+    sweep?: { level: number; extreme: number; t: string };
+    zone?: { kind: string; top: number; bottom: number; t: string };
+    trigger_bar?: string;
+  };
+  stats: {
+    label: string;
+    n: number;
+    hit_rate: number | null;
+    hit_rate_ci: [number, number] | null;
+    small_sample: boolean;
+    breakeven_rate: number | null;
+  } | null;
+  status: "active" | "target_reached" | "invalidated" | "expired";
+  narrative: Narrative | null;
+};
+
+export type Indicators = { t: string[]; ema50: (number | null)[]; ema200: (number | null)[]; rsi: (number | null)[] };
+
+export const STATUS_FR: Record<Opportunity["status"], string> = {
+  active: "Active",
+  target_reached: "Objectif atteint",
+  invalidated: "Invalidée",
+  expired: "Expirée",
+};

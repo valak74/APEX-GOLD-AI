@@ -72,6 +72,7 @@ class SystemStatus(BaseModel):
     risk_config_hash: str
     risk_config_version: int | None
     market_data: dict[str, Any]
+    llm_enabled: bool = False
 
 
 @router.get("/system/status", response_model=SystemStatus)
@@ -89,6 +90,7 @@ async def system_status(_: Viewer, state: StateDep, session: SessionDep) -> Syst
         risk_config_hash=cfg.config_hash(),
         risk_config_version=ver,
         market_data=state.market.describe(),
+        llm_enabled=state.settings.llm_enabled,
     )
 
 

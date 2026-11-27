@@ -3,6 +3,7 @@
 import {
   CandlestickSeries,
   createSeriesMarkers,
+  LineSeries,
   LineStyle,
   ColorType,
   CrosshairMode,
@@ -17,7 +18,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
-import { api, type BarOut, type Overlays } from "@/lib/api";
+import { api, type BarOut, type Indicators, type Opportunity, type Overlays } from "@/lib/api";
 import { usePoll } from "@/lib/usePoll";
 import { Segmented } from "./ui";
 
@@ -54,7 +55,13 @@ function toTime(iso: string): UTCTimestamp {
 
 type Readout = { o: number; h: number; l: number; c: number; t: string } | null;
 
-export function PriceChart() {
+// Indicator colours: categorical slots validated on the dark surface (blue, violet); RSI in neutral text ink.
+const EMA50 = "#338ced";
+const EMA200 = "#9887ef";
+const RSI = "#9aa3b5";
+const STOP = "#eb5757";
+
+export function PriceChart({ focus = null, onClearFocus }: { focus?: Opportunity | null; onClearFocus?: () => void }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -68,7 +75,12 @@ export function PriceChart() {
   const [showStructure, setShowStructure] = useState(true);
   const [overlays, setOverlays] = useState<Overlays | null>(null);
   const lines = useRef<IPriceLine[]>([]);
+  const focusLines = useRef<IPriceLine[]>([]);
   const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const e50 = useRef<ISeriesApi<"Line"> | null>(null);
+  const e200 = useRef<ISeriesApi<"Line"> | null>(null);
+  const rsiS = useRef<ISeriesApi<"Line"> | null>(null);
+  const [showInd, setShowInd] = useState(true);
 
   useEffect(() => {
     if (!host.current) return;
@@ -109,12 +121,27 @@ export function PriceChart() {
       const t = new Date((Number(p.time) - TZ_SHIFT) * 1000);
       setReadout({ o: d.open, h: d.high, l: d.low, c: d.close, t: t.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) });
     });
+    // autoscaleInfoProvider: the price scale fits the candles, not distant moving averages.
+    const lineOpts = { lineWidth: 2 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
+    e50.current = c.addSeries(LineSeries, { ...lineOpts, color: EMA50, title: "EMA 50" });
+    e200.current = c.addSeries(LineSeries, { ...lineOpts, color: EMA200, title: "EMA 200" });
+    rsiS.current = c.addSeries(LineSeries, { ...lineOpts, autoscaleInfoProvider: undefined, color: RSI, title: "RSI 14", priceFormat: { type: "price", precision: 0, minMove: 1 } }, 1);
+    for (const lvl of [70, 30]) {
+      rsiS.current.createPriceLine({ price: lvl, color: "#3a4254", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" });
+    }
+    try {
+      c.panes()[1]?.setHeight(90);
+    } catch {
+      /* older pane API: keep default height */
+    }
     chart.current = c;
     series.current = s;
     markers.current = createSeriesMarkers(s, []);
     return () => {
       markers.current = null;
       lines.current = [];
+      focusLines.current = [];
+      e50.current = e200.current = rsiS.current = null;
       c.remove();
       chart.current = null;
       series.current = null;
@@ -159,6 +186,46 @@ export function PriceChart() {
     [tf],
   );
 
+  // Indicators: same bars as the candles, so the times line up exactly.
+  usePoll(
+    async () => {
+      const ind = await api<Indicators>(`/analysis/indicators?timeframe=${tf}&limit=400`).catch(() => null);
+      if (!ind) return;
+      const pts = (vals: (number | null)[]) =>
+        ind.t.map((t, i) => (vals[i] === null ? { time: toTime(t) } : { time: toTime(t), value: vals[i] as number }));
+      e50.current?.setData(pts(ind.ema50));
+      e200.current?.setData(pts(ind.ema200));
+      rsiS.current?.setData(pts(ind.rsi));
+    },
+    5000,
+    [tf],
+  );
+
+  useEffect(() => {
+    for (const x of [e50.current, e200.current, rsiS.current]) x?.applyOptions({ visible: showInd });
+  }, [showInd]);
+
+  // Selected opportunity: switch to its timeframe and draw its plan.
+  useEffect(() => {
+    if (focus && (TIMEFRAMES as readonly string[]).includes(focus.timeframe)) setTf(focus.timeframe as TF);
+    const s = series.current;
+    if (!s) return;
+    for (const l of focusLines.current) s.removePriceLine(l);
+    focusLines.current = [];
+    if (!focus) return;
+    const add = (price: number, color: string, title: string, style: LineStyle) =>
+      focusLines.current.push(s.createPriceLine({ price, color, lineWidth: 2, lineStyle: style, axisLabelVisible: true, title }));
+    add(focus.entry, "#e0b55b", "Entrée", LineStyle.Solid);
+    add(focus.stop, STOP, "Stop", LineStyle.Dashed);
+    focus.targets.forEach((t, i) => add(t, UP, `Objectif ${i + 1}`, LineStyle.Dashed));
+    if (focus.evidence.zone) {
+      add(focus.evidence.zone.top, "#c9a24f", `${focus.evidence.zone.kind} haut`, LineStyle.Dotted);
+      add(focus.evidence.zone.bottom, "#c9a24f", `${focus.evidence.zone.kind} bas`, LineStyle.Dotted);
+    }
+    if (focus.evidence.sweep) add(focus.evidence.sweep.level, "#c9a24f", "Liquidité balayée", LineStyle.Dotted);
+    chart.current?.timeScale().scrollToRealTime();
+  }, [focus]);
+
   useEffect(() => {
     const s = series.current;
     if (!s) return;
@@ -183,10 +250,20 @@ export function PriceChart() {
               shape: e.direction === "bullish" ? ("arrowUp" as const) : ("arrowDown" as const),
               text: e.kind,
             }))
-            .sort((a, b) => Number(a.time) - Number(b.time))
         : [];
+    if (focus?.evidence.trigger_bar) {
+      const bull = focus.direction === "bullish";
+      m.push({
+        time: toTime(focus.evidence.trigger_bar),
+        position: bull ? "belowBar" : "aboveBar",
+        color: "#e0b55b",
+        shape: "circle",
+        text: bull ? "Opportunité ▲" : "Opportunité ▼",
+      });
+    }
+    m.sort((a, b) => Number(a.time) - Number(b.time));
     markers.current?.setMarkers(m);
-  }, [overlays, showLevels, showStructure]);
+  }, [overlays, showLevels, showStructure, focus]);
 
   const r = readout ?? last;
   const chg = r ? r.c - r.o : 0;
@@ -195,9 +272,16 @@ export function PriceChart() {
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
         <div className="flex items-baseline gap-3">
           <h2 className="text-sm font-semibold tracking-wide">XAU/USD</h2>
-          <span className="text-xs text-faint">Or spot · prix moyen bid/ask</span>
+          {focus ? (
+            <button onClick={onClearFocus} className="rounded-md border border-gold/40 bg-gold-soft px-2 py-0.5 text-xs text-gold" title="Masquer l'opportunité">
+              {focus.direction === "bullish" ? "▲" : "▼"} {focus.setup_label} ✕
+            </button>
+          ) : (
+            <span className="text-xs text-faint">Or spot · prix moyen bid/ask</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          <Toggle on={showInd} onClick={() => setShowInd((v) => !v)} label="Indicateurs" />
           <Toggle on={showLevels} onClick={() => setShowLevels((v) => !v)} label="Niveaux" />
           <Toggle on={showStructure} onClick={() => setShowStructure((v) => !v)} label="Structure" />
           <Segmented label="Unité de temps" value={tf} options={TIMEFRAMES} onChange={(v) => setTf(v)} />

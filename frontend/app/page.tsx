@@ -6,6 +6,7 @@ import { AnalysisCard } from "@/components/AnalysisCard";
 import { CalendarCard } from "@/components/CalendarCard";
 import { AccountCard, PositionsCard, QualityCard, RiskCard } from "@/components/cards";
 import { Header } from "@/components/Header";
+import { OpportunitiesList, OpportunityDetail } from "@/components/Opportunities";
 import { PriceChart } from "@/components/PriceChart";
 import { SizeCalculator } from "@/components/SizeCalculator";
 import {
@@ -16,6 +17,7 @@ import {
   type CalEvent,
   type Context,
   type Lockout,
+  type Opportunity,
   type LiveQuote,
   type Me,
   type Position,
@@ -39,6 +41,8 @@ export default function Dashboard() {
   const [ctx, setCtx] = useState<Context | null>(null);
   const [lockout, setLockout] = useState<Lockout | null>(null);
   const [events, setEvents] = useState<CalEvent[]>([]);
+  const [opps, setOpps] = useState<Opportunity[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const loadSlow = useCallback(async () => {
     try {
@@ -70,6 +74,12 @@ export default function Dashboard() {
     setEvents(await api<CalEvent[]>("/calendar/upcoming").catch(() => []));
   }, 20000);
 
+  usePoll(async () => {
+    const list = await api<Opportunity[]>("/opportunities").catch(() => null);
+    if (list) setOpps(list);
+  }, 10000);
+  const selected = opps.find((o) => o.id === selectedId) ?? null;
+
   async function logout() {
     await api("/auth/logout", { method: "POST" });
     router.replace("/login");
@@ -97,14 +107,23 @@ export default function Dashboard() {
       <main className="mx-auto grid max-w-[1500px] gap-4 p-4 sm:p-6 xl:grid-cols-12">
         <div className="space-y-4 xl:col-span-8">
           <section className="card flex h-[460px] flex-col overflow-hidden sm:h-[min(64vh,580px)] sm:min-h-[440px]">
-            <PriceChart />
+            <PriceChart focus={selected} onClearFocus={() => setSelectedId(null)} />
           </section>
+          {selected && (
+            <OpportunityDetail
+              o={selected}
+              canExplain={(me.role === "trader" || me.role === "admin") && status.llm_enabled}
+              onClose={() => setSelectedId(null)}
+              onExplained={(n) => setOpps((xs) => xs.map((x) => (x.id === selected.id ? { ...x, narrative: n } : x)))}
+            />
+          )}
           <PositionsCard positions={positions} ccy={account.currency} />
           <AnalysisCard ctx={ctx} />
           <CalendarCard lockout={lockout} events={events} />
           {risk && <RiskCard risk={risk} equity={Number(account.equity.amount)} ccy={account.currency} />}
         </div>
         <aside className="space-y-4 xl:col-span-4">
+          <OpportunitiesList items={opps} selected={selectedId} onSelect={(o) => setSelectedId(o?.id ?? null)} />
           <AccountCard account={account} />
           <QualityCard q={quality} />
           <SizeCalculator accountCcy={account.currency} price={mid} />

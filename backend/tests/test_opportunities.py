@@ -73,7 +73,14 @@ def test_detects_liquidity_sweep_reversal_with_full_plan() -> None:
     by_key = {x.key: x for x in o.confluences}
     assert by_key["sweep"].ok and "3990" in by_key["sweep"].detail
     assert by_key["pool"].ok  # equal lows
-    assert 0 <= o.quality <= 100 and o.invalidation and o.evidence["sweep"]["extreme"] == 3986.0
+    assert (
+        0 <= o.quality <= 100
+        and o.invalidation.startswith("clôture")
+        and o.evidence["sweep"]["extreme"] == 3986.0
+    )
+    assert o.risk_reward >= 1.0  # targets closer than 1R are never proposed
+    if len(o.targets) == 2:
+        assert abs(o.targets[1] - o.targets[0]) >= 0.5 * (o.entry - o.stop)
     assert o.stats is not None and "hit_rate" in o.stats and "breakeven_rate" in o.stats
     assert detect(c)[-1].id == o.id  # deterministic id
 
@@ -292,3 +299,24 @@ async def test_scan_persist_block_explain_and_track(api: Any) -> None:
 
     ind = (await cl.get("/analysis/indicators", params={"timeframe": "5m"})).json()
     assert len(ind["t"]) == len(ind["rsi"]) == len(ind["ema50"]) and ind["ema50"][-1] is not None
+
+
+def test_same_sweep_seen_on_consecutive_scans_is_one_opportunity() -> None:
+    """The detector looks back a few bars: a live scanner sees the same sweep several times."""
+    c = sweep_series()
+    calm = np.array([[3993, 3995, 3992, 3994], [3994, 3996, 3993, 3995]], dtype=float)
+    ids = set()
+    for k in range(3):
+        rows = calm[:k]
+        ck = Candles(
+            [*c.t, *[c.t[-1] + timedelta(minutes=5 * (j + 1)) for j in range(k)]],
+            np.append(c.o, rows[:, 0]),
+            np.append(c.h, rows[:, 1]),
+            np.append(c.l, rows[:, 2]),
+            np.append(c.c, rows[:, 3]),
+            "5m",
+        )
+        ids |= {o.id for o in detect(ck) if o.setup == "liquidity_sweep_reversal"}
+    assert len(ids) == 1
+    o = next(x for x in detect(c) if x.setup == "liquidity_sweep_reversal")
+    assert o.evidence["trigger_bar"] == c.t[-1]  # marker on the sweep bar

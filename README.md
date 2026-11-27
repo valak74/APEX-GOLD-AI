@@ -57,4 +57,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Guide cTrader (FR)](docs/09-guide-connexion-ctrader.md) | Connecter votre compte démo IC Markets, pas à pas |
 | [Phase 3 report](docs/10-phase3-progress.md) | Market data: delivered, verified, pending |
 | [Phase 4 report](docs/11-phase4-report.md) | Analysis engine, calendar lockouts |
+| [Opportunities & AI](docs/12-opportunities-and-ai.md) | Setup detection, explanations, LLM role, enabling it |
 | [ADRs](docs/adr/) | Key architectural decisions |

@@ -83,14 +83,20 @@ def _id(setup: str, tf: str, t: datetime, direction: str) -> str:
 
 
 def _targets(direction: Dir, entry: float, stop: float, candidates: list[float]) -> list[float]:
+    """Liquidity levels at least 1R away (closer ones are not worth the risk); else a measured 2R target."""
     risk = abs(entry - stop)
     s = 1 if direction == "bullish" else -1
     levels = sorted(
-        {round(x, 2) for x in candidates if (x - entry) * s > 0.5 * risk}, key=lambda x: (x - entry) * s
+        {round(x, 2) for x in candidates if (x - entry) * s >= 1.0 * risk}, key=lambda x: (x - entry) * s
     )
-    out = levels[:2]
+    out: list[float] = []
+    for lv in levels:  # a second target must be meaningfully further (≥ 0.5R beyond the first)
+        if not out or abs(lv - out[-1]) >= 0.5 * risk:
+            out.append(lv)
+        if len(out) == 2:
+            break
     if not out:
-        out = [round(entry + s * 2 * risk, 2)]  # no liquidity ahead within reach: measured 2R target
+        out = [round(entry + s * 2 * risk, 2)]  # no liquidity far enough: measured 2R target
     return out
 
 
@@ -145,6 +151,7 @@ def _finish(
     warnings: list[str],
     invalidation: str,
     evidence: dict[str, Any],
+    event_t: datetime,
 ) -> Opportunity:
     risk = abs(entry - stop)
     rr = round(abs(targets[0] - entry) / risk, 2) if risk > 0 else 0.0
@@ -153,7 +160,7 @@ def _finish(
     if rr < MIN_RR:
         warnings.append(f"rapport rendement/risque faible ({rr:.2f} < {MIN_RR})")
     return Opportunity(
-        id=_id(setup, c.timeframe, c.t[i], direction),
+        id=_id(setup, c.timeframe, event_t, direction),  # one idea per triggering event, however often seen
         setup=setup,
         setup_label=SETUP_FR[setup],
         direction=direction,
@@ -255,7 +262,7 @@ def detect(c: Candles, ctx: MTFContext | None = None, with_stats: bool = True) -
         evidence = {
             "sweep": {"level": sw.level, "extreme": sw.extreme, "t": sw.t},
             "structure_events": [asdict(e) for e in later[-2:]],
-            "trigger_bar": c.t[i],
+            "trigger_bar": sw.t,  # the sweep bar itself
         }
         out.append(
             _finish(
@@ -268,8 +275,14 @@ def detect(c: Candles, ctx: MTFContext | None = None, with_stats: bool = True) -
                 targets,
                 confs,
                 warnings,
-                sw.invalidation + f" ({sw.invalidation_level:.2f})",
+                (
+                    "clôture sous le bas du balayage"
+                    if d == "bullish"
+                    else "clôture au-dessus du haut du balayage"
+                )
+                + f" ({sw.invalidation_level:.2f})",
                 evidence,
+                sw.t,
             )
         )
         if with_stats:
@@ -351,8 +364,14 @@ def detect(c: Candles, ctx: MTFContext | None = None, with_stats: bool = True) -
                         targets,
                         confs,
                         warnings,
-                        z.invalidation + f" ({z.bottom if d2 == 'bullish' else z.top:.2f})",
+                        (
+                            "clôture sous le bas de la zone"
+                            if d2 == "bullish"
+                            else "clôture au-dessus du haut de la zone"
+                        )
+                        + f" ({z.bottom if d2 == 'bullish' else z.top:.2f})",
                         evidence,
+                        z.t,
                     )
                 )
                 if with_stats:
