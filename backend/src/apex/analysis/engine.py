@@ -124,6 +124,7 @@ class MTFContext:
     bias_score: float  # -1 (fully bearish) .. +1 (fully bullish)
     alignment: str
     htf_conflict: bool
+    htf_available: bool  # False when 1d/4h lack data: the bias is then short-term only
     summary: list[str]
     timeframes: dict[str, TFAnalysis]
     levels: list[dict[str, Any]]
@@ -147,6 +148,9 @@ def mtf_context(frames: dict[str, Candles], intraday: Candles | None, now: datet
     htf_conflict = bool(htf_dir and exec_ and any(e != htf_dir for e in exec_))
     trends = {a.effective_trend for a in tfs.values() if a.effective_trend != "none"}
     alignment = "aligned" if len(trends) == 1 else "mixed" if trends else "undetermined"
+    htf_available = any(
+        a.role == "higher" and a.regime.get("label") != "insufficient_data" for a in tfs.values()
+    )
     summary = []
     for tf in ("1d", "4h", "1h", "15m", "5m"):
         if tf in tfs:
@@ -154,5 +158,7 @@ def mtf_context(frames: dict[str, Candles], intraday: Candles | None, now: datet
             summary.append(f"{tf}: trend {a.effective_trend}, regime {a.regime.get('label')}")
     if htf_conflict:
         summary.append("execution timeframe structure is against the higher-timeframe bias")
+    if not htf_available:
+        summary.append("higher timeframes (1d/4h) lack data: bias reflects short-term timeframes only")
     levels = [asdict(lv) for lv in reference_levels(intraday, now)] if intraday is not None else []
-    return MTFContext(now, bias, bias_score, alignment, htf_conflict, summary, tfs, levels)
+    return MTFContext(now, bias, bias_score, alignment, htf_conflict, htf_available, summary, tfs, levels)

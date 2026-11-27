@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { LiveQuote, Me, SystemStatus } from "@/lib/api";
+import type { LiveQuote, Lockout, Me, SystemStatus } from "@/lib/api";
 import { KillSwitch } from "./KillSwitch";
 import { Dot } from "./ui";
 
@@ -11,7 +11,8 @@ const MODE = {
   live: { label: "LIVE", cls: "border-danger/60 text-danger bg-danger/15", hint: "Argent réel" },
 } as const;
 
-export function Header({ status, me, quote, dayOpen, onLogout, onRefresh }: {
+export function Header({ status, me, quote, dayOpen, lockout, onLogout, onRefresh }: {
+  lockout: Lockout | null;
   status: SystemStatus;
   me: Me;
   quote: LiveQuote | null;
@@ -82,6 +83,10 @@ export function Header({ status, me, quote, dayOpen, onLogout, onRefresh }: {
             <span className="flex items-center gap-1.5">
               <Dot tone={status.broker.connected ? "ok" : "bad"} />
               Broker
+            </span>
+            <span className="flex items-center gap-1.5" title={lockout?.reason ?? "Aucune annonce majeure imminente"}>
+              <Dot tone={!lockout ? "off" : lockout.locked ? "bad" : "ok"} />
+              Annonces
             </span>
             <span className="flex items-center gap-1.5">
               <Dot tone={status.trading_enabled ? "ok" : "off"} />

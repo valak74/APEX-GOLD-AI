@@ -59,7 +59,7 @@ async def analysis_overlays(
     intraday = await _candles(state, session, LEVELS_TF, LEVELS_BARS)
 
     def compute() -> dict[str, Any]:
-        a = analyze_tf(c, max_items=8)
+        a = analyze_tf(c, max_items=4)  # 8 most recent structure events: readable chart
         lv = [asdict(x) for x in reference_levels(intraday, utcnow())] if len(intraday) else []
         return {
             "timeframe": timeframe,

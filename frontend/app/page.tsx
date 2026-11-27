@@ -2,16 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { AnalysisCard } from "@/components/AnalysisCard";
+import { CalendarCard } from "@/components/CalendarCard";
 import { AccountCard, PositionsCard, QualityCard, RiskCard } from "@/components/cards";
 import { Header } from "@/components/Header";
 import { PriceChart } from "@/components/PriceChart";
 import { SizeCalculator } from "@/components/SizeCalculator";
-import { Card, Soon } from "@/components/ui";
 import {
   api,
   ApiError,
   type Account,
   type BarOut,
+  type CalEvent,
+  type Context,
+  type Lockout,
   type LiveQuote,
   type Me,
   type Position,
@@ -32,6 +36,9 @@ export default function Dashboard() {
   const [quality, setQuality] = useState<Quality | null>(null);
   const [dayOpen, setDayOpen] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<Context | null>(null);
+  const [lockout, setLockout] = useState<Lockout | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
 
   const loadSlow = useCallback(async () => {
     try {
@@ -57,6 +64,12 @@ export default function Dashboard() {
     setQuality(await api<Quality>("/market/quality").catch(() => null));
   }, 1000);
 
+  usePoll(async () => {
+    setCtx(await api<Context>("/analysis/context").catch(() => null));
+    setLockout(await api<Lockout>("/calendar/lockout").catch(() => null));
+    setEvents(await api<CalEvent[]>("/calendar/upcoming").catch(() => []));
+  }, 20000);
+
   async function logout() {
     await api("/auth/logout", { method: "POST" });
     router.replace("/login");
@@ -73,7 +86,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      <Header status={status} me={me} quote={quote} dayOpen={dayOpen} onLogout={logout} onRefresh={loadSlow} />
+      <Header status={status} me={me} quote={quote} dayOpen={dayOpen} lockout={lockout} onLogout={logout} onRefresh={loadSlow} />
       {status.kill_switch_engaged && (
         <div className="border-b border-danger/30 bg-danger/10 px-6 py-2 text-center text-sm text-danger">
           Arrêt d&apos;urgence engagé — {status.kill_switch_reason}. Trading bloqué jusqu&apos;au réarmement par un admin.
@@ -87,10 +100,8 @@ export default function Dashboard() {
             <PriceChart />
           </section>
           <PositionsCard positions={positions} ccy={account.currency} />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card title="Analyse IA"><Soon>Régime de marché, scores et décision — phase 8. Rien n&apos;est simulé ici.</Soon></Card>
-            <Card title="News & calendrier"><Soon>Flux d&apos;actualités et annonces économiques — phase 4.</Soon></Card>
-          </div>
+          <AnalysisCard ctx={ctx} />
+          <CalendarCard lockout={lockout} events={events} />
           {risk && <RiskCard risk={risk} equity={Number(account.equity.amount)} ccy={account.currency} />}
         </div>
         <aside className="space-y-4 xl:col-span-4">

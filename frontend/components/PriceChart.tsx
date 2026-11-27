@@ -2,17 +2,22 @@
 
 import {
   CandlestickSeries,
+  createSeriesMarkers,
+  LineStyle,
   ColorType,
   CrosshairMode,
   createChart,
   type CandlestickData,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
-import { api, type BarOut } from "@/lib/api";
+import { api, type BarOut, type Overlays } from "@/lib/api";
 import { usePoll } from "@/lib/usePoll";
 import { Segmented } from "./ui";
 
@@ -36,6 +41,17 @@ function toCandle(b: BarOut): CandlestickData<Time> {
   };
 }
 
+const LEVELS: Record<string, { title: string; color: string }> = {
+  prev_day_high: { title: "Veille H", color: "#9aa3b5" },
+  prev_day_low: { title: "Veille B", color: "#9aa3b5" },
+  prev_week_high: { title: "Sem. H", color: "#c9a24f" },
+  prev_week_low: { title: "Sem. B", color: "#c9a24f" },
+};
+
+function toTime(iso: string): UTCTimestamp {
+  return (Math.floor(new Date(iso).getTime() / 1000) + TZ_SHIFT) as UTCTimestamp;
+}
+
 type Readout = { o: number; h: number; l: number; c: number; t: string } | null;
 
 export function PriceChart() {
@@ -48,6 +64,11 @@ export function PriceChart() {
   const [empty, setEmpty] = useState(true);
   const [readout, setReadout] = useState<Readout>(null);
   const [last, setLast] = useState<Readout>(null);
+  const [showLevels, setShowLevels] = useState(true);
+  const [showStructure, setShowStructure] = useState(true);
+  const [overlays, setOverlays] = useState<Overlays | null>(null);
+  const lines = useRef<IPriceLine[]>([]);
+  const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   useEffect(() => {
     if (!host.current) return;
@@ -90,7 +111,10 @@ export function PriceChart() {
     });
     chart.current = c;
     series.current = s;
+    markers.current = createSeriesMarkers(s, []);
     return () => {
+      markers.current = null;
+      lines.current = [];
       c.remove();
       chart.current = null;
       series.current = null;
@@ -127,6 +151,43 @@ export function PriceChart() {
     [tf],
   );
 
+  usePoll(
+    async () => {
+      setOverlays(await api<Overlays>(`/analysis/overlays?timeframe=${tf}`).catch(() => null));
+    },
+    15000,
+    [tf],
+  );
+
+  useEffect(() => {
+    const s = series.current;
+    if (!s) return;
+    for (const l of lines.current) s.removePriceLine(l);
+    lines.current = [];
+    if (showLevels && overlays) {
+      for (const lv of overlays.levels) {
+        const meta = LEVELS[lv.name];
+        if (!meta) continue;
+        lines.current.push(
+          s.createPriceLine({ price: lv.price, color: meta.color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: meta.title }),
+        );
+      }
+    }
+    const m: SeriesMarker<Time>[] =
+      showStructure && overlays
+        ? overlays.events
+            .map((e) => ({
+              time: toTime(e.t),
+              position: e.direction === "bullish" ? ("belowBar" as const) : ("aboveBar" as const),
+              color: e.direction === "bullish" ? UP : DOWN,
+              shape: e.direction === "bullish" ? ("arrowUp" as const) : ("arrowDown" as const),
+              text: e.kind,
+            }))
+            .sort((a, b) => Number(a.time) - Number(b.time))
+        : [];
+    markers.current?.setMarkers(m);
+  }, [overlays, showLevels, showStructure]);
+
   const r = readout ?? last;
   const chg = r ? r.c - r.o : 0;
   return (
@@ -136,7 +197,11 @@ export function PriceChart() {
           <h2 className="text-sm font-semibold tracking-wide">XAU/USD</h2>
           <span className="text-xs text-faint">Or spot · prix moyen bid/ask</span>
         </div>
-        <Segmented label="Unité de temps" value={tf} options={TIMEFRAMES} onChange={(v) => setTf(v)} />
+        <div className="flex items-center gap-2">
+          <Toggle on={showLevels} onClick={() => setShowLevels((v) => !v)} label="Niveaux" />
+          <Toggle on={showStructure} onClick={() => setShowStructure((v) => !v)} label="Structure" />
+          <Segmented label="Unité de temps" value={tf} options={TIMEFRAMES} onChange={(v) => setTf(v)} />
+        </div>
       </div>
       <div className="num flex flex-wrap gap-x-4 gap-y-1 px-5 pt-2 text-xs text-muted" aria-live="polite">
         {r ? (
@@ -167,5 +232,17 @@ export function PriceChart() {
         )}
       </div>
     </div>
+  );
+}
+
+function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      className={`rounded-lg border px-2.5 py-1 text-xs transition ${on ? "border-gold/40 bg-gold-soft text-gold" : "border-line text-muted hover:text-text"}`}
+    >
+      {label}
+    </button>
   );
 }

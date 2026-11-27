@@ -271,6 +271,8 @@ def test_mtf_context_bias_and_conflict() -> None:
         "5m": Candles(down.t, down.o, down.h, down.l, down.c, "5m"),
     }
     ctx = mtf_context(frames, None, up.t[-1])
-    assert ctx.bias == "bullish" and ctx.htf_conflict and ctx.alignment == "mixed"
+    assert ctx.bias == "bullish" and ctx.htf_conflict and ctx.alignment == "mixed" and ctx.htf_available
+    short = mtf_context({"5m": up}, None, up.t[-1])
+    assert not short.htf_available and any("1d/4h" in x for x in short.summary)
     one = analyze_tf(up)
     assert one.effective_trend == "up" and one.indicators["atr"] is not None

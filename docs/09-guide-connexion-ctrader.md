@@ -91,3 +91,12 @@ docker compose exec api apex import-dukascopy --from 2025-01-01 --to 2026-11-01
 ```
 Télécharge les ticks Dukascopy heure par heure (reprend là où il s'est arrêté), refuse tout fichier incohérent,
 puis calcule les bougies. Plusieurs mois prennent du temps : commencez par un mois pour vérifier.
+
+## Charger le calendrier économique
+
+Créez un fichier `calendrier.json` (format dans `docs/11-phase4-report.md`), puis :
+```bash
+docker compose cp calendrier.json api:/tmp/calendrier.json
+docker compose exec api apex calendar-import /tmp/calendrier.json --source manuel
+```
+Les nouvelles entrées sont bloquées ±15 min autour de chaque annonce majeure USD (réglable dans les limites de risque).

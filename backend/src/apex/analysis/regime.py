@@ -50,7 +50,9 @@ def _f(x: float) -> float | None:
 
 def classify(c: Candles, st: Structure, min_bars: int = 60) -> Regime:
     if len(c) < min_bars:
-        return Regime("insufficient_data", "neutral", "unknown", 0.0, reasons=[f"fewer than {min_bars} bars"])
+        return Regime(
+            "insufficient_data", "neutral", "unknown", 0.0, reasons=[f"moins de {min_bars} bougies"]
+        )
     a, pdi, mdi = adx(c)
     er = efficiency_ratio(c.c, 20)
     at = atr(c)
@@ -65,7 +67,14 @@ def classify(c: Candles, st: Structure, min_bars: int = 60) -> Regime:
         "atr_rank": _f(rank[i]),
     }
     if any(v is None for k, v in m.items() if k != "atr_rank"):
-        return Regime("insufficient_data", "neutral", "unknown", 0.0, m, ["indicators still warming up"])
+        return Regime(
+            "insufficient_data",
+            "neutral",
+            "unknown",
+            0.0,
+            m,
+            ["indicateurs en cours de calcul (historique trop court)"],
+        )
 
     adx_v, er_v = float(a[i]), float(er[i])
     di_dir = "bullish" if pdi[i] > mdi[i] else "bearish"
@@ -81,30 +90,35 @@ def classify(c: Candles, st: Structure, min_bars: int = 60) -> Regime:
     direction: Literal["bullish", "bearish", "neutral"]
     if (c.c[i] > hi20 or c.c[i] < lo20) and rising:
         label, direction = "breakout", "bullish" if c.c[i] > hi20 else "bearish"
-        reasons.append("close beyond 20-bar range with expanding volatility")
+        reasons.append("clôture hors du range des 20 dernières bougies avec volatilité en hausse")
     elif adx_v >= 30 and er_v >= 0.35 and st_dir in (di_dir, "neutral"):
         label, direction = "strong_trend", di_dir  # type: ignore[assignment]
-        agree = "structure agrees" if st_dir == di_dir else "structure undetermined (no pullback swings yet)"
-        reasons.append(f"ADX {adx_v:.0f} ≥ 30, efficiency {er_v:.2f}, {di_dir} DI; {agree}")
+        agree = (
+            "la structure confirme"
+            if st_dir == di_dir
+            else "structure pas encore formée (aucun repli confirmé)"
+        )
+        pressure = "acheteuse" if di_dir == "bullish" else "vendeuse"
+        reasons.append(f"ADX {adx_v:.0f} ≥ 30, efficacité {er_v:.2f}, pression {pressure} ; {agree}")
     elif (er_v < 0.20 and adx_v < 30) or (adx_v < 20 and er_v < 0.25):
         label, direction = "range", "neutral"
-        reasons.append(f"efficiency {er_v:.2f} (price goes nowhere), ADX {adx_v:.0f}")
+        reasons.append(f"efficacité {er_v:.2f} : le prix oscille sans progresser (ADX {adx_v:.0f})")
     elif adx_v >= 20:
         label, direction = "weak_trend", di_dir  # type: ignore[assignment]
         if adx_v < 30:
-            reasons.append(f"ADX {adx_v:.0f} between 20 and 30, efficiency {er_v:.2f}")
+            reasons.append(f"ADX {adx_v:.0f} entre 20 et 30, efficacité {er_v:.2f}")
         elif st_dir not in (di_dir, "neutral"):
-            reasons.append("strong ADX but market structure points the other way")
+            reasons.append("ADX élevé mais la structure de marché va dans l'autre sens")
         else:
-            reasons.append(f"ADX {adx_v:.0f} but moderate efficiency {er_v:.2f}")
+            reasons.append(f"ADX {adx_v:.0f} mais efficacité modérée {er_v:.2f}")
     else:
         label, direction = "transition", "neutral"
-        reasons.append("no clear trend or range")
+        reasons.append("ni tendance ni range nets")
 
     mult = {"strong_trend": 1.0, "weak_trend": 0.75, "range": 0.75, "breakout": 0.5, "transition": 0.5}[label]
     if vol == "high":
         mult = min(mult, 0.5)
-        reasons.append("high volatility: size reduction suggested")
+        reasons.append("volatilité élevée : réduction de taille suggérée")
     suitable = {
         "strong_trend": ["trend_pullback", "htf_trend_ltf_entry"],
         "weak_trend": ["trend_pullback", "liquidity_sweep_reversal"],

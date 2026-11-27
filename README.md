@@ -33,6 +33,8 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | `backend/src/apex/core` | config, logging (secret redaction), `Money`, FX conversion |
 | `backend/src/apex/risk` | position sizing, risk configuration |
 | `backend/src/apex/broker` | `BrokerAdapter` interface, paper/simulation broker, mode-guarded factory, `ctrader/` read-only adapter |
+| `backend/src/apex/analysis` | indicators, structure, liquidity, levels, regime, MTF, event statistics |
+| `backend/src/apex/intel` | economic calendar & lockouts |
 | `backend/src/apex/market` | feed supervisor, sessions, bars, data quality, recorder, Dukascopy importer |
 | `backend/src/apex/security` | passwords, JWT/TOTP, envelope encryption |
 | `backend/src/apex/api` | FastAPI app and routes |
@@ -54,4 +56,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Phase 2 report](docs/08-phase2-report.md) | What was built, how it was verified, known limitations |
 | [Guide cTrader (FR)](docs/09-guide-connexion-ctrader.md) | Connecter votre compte démo IC Markets, pas à pas |
 | [Phase 3 report](docs/10-phase3-progress.md) | Market data: delivered, verified, pending |
+| [Phase 4 report](docs/11-phase4-report.md) | Analysis engine, calendar lockouts |
 | [ADRs](docs/adr/) | Key architectural decisions |
