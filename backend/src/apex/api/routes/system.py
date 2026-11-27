@@ -304,12 +304,16 @@ async def market_bars(
                 select(BarRow)
                 .where(BarRow.symbol == symbol, BarRow.timeframe == timeframe)
                 .order_by(BarRow.start.desc())
-                .limit(limit)
+                .limit(limit * 2)
             )
         )
         .scalars()
         .all()
     )
+    # Several sources can cover the same period (e.g. Dukascopy history + live broker feed):
+    # the live source wins, other sources only fill gaps.
+    live = state.market.source
+    rows = sorted(rows, key=lambda r: r.source == live)  # live rows last -> they overwrite
     by_start: dict[datetime, BarOut] = {
         r.start: BarOut(
             start=r.start,
@@ -327,10 +331,21 @@ async def market_bars(
     feed = state.market
     mem = list(feed.recent.get(timeframe, ()))
     partial = feed.bars.partial(timeframe) if symbol == feed.bars.symbol else None
+    live_stored = {r.start for r in rows if r.source == live}
     for b in [*mem, *([partial] if partial else [])]:
-        by_start[b.start] = BarOut(
-            **{k: v for k, v in b.as_dict().items() if k not in ("symbol", "timeframe")}
-        )
+        fresh = BarOut(**{k: v for k, v in b.as_dict().items() if k not in ("symbol", "timeframe")})
+        prior = by_start.get(b.start)
+        if prior is not None and b.start not in live_stored and prior.start <= b.start:
+            # The feed started mid-period: the stored (history) bar knows the true open and earlier extremes.
+            fresh = fresh.model_copy(
+                update={
+                    "open": prior.open,
+                    "high": max(prior.high, fresh.high),
+                    "low": min(prior.low, fresh.low),
+                    "tick_count": prior.tick_count + fresh.tick_count,
+                }
+            )
+        by_start[b.start] = fresh
     return [by_start[k] for k in sorted(by_start)][-limit:]
 
 

@@ -158,3 +158,157 @@ async def test_bars_and_quality_endpoints_from_live_quotes(app_state: Any) -> No
     assert (await c.get("/market/bars", params={"timeframe": "2m"})).status_code == 422
     qual = (await c.get("/market/quality")).json()
     assert qual["counters"]["quotes"] == 150 and qual["symbol"] == "XAUUSD"
+
+
+async def test_bars_live_source_wins_over_history(app_state: Any) -> None:
+    c, st = app_state
+    st.market.source = "ctrader"
+    start = datetime(2026, 11, 26, 14, 0, tzinfo=UTC)
+    common: dict[str, Any] = {
+        "symbol": "XAUUSD",
+        "timeframe": "1m",
+        "spread_avg": D("0.2"),
+        "spread_max": D("0.3"),
+        "tick_count": 5,
+    }
+    async with st.sessionmaker() as s:
+        s.add_all(
+            [
+                BarRow(source="dukascopy", start=start, open=1, high=2, low=1, close=2, **common),
+                BarRow(source="ctrader", start=start, open=3, high=4, low=3, close=4, **common),
+                BarRow(
+                    source="dukascopy",
+                    start=start + timedelta(minutes=1),
+                    open=5,
+                    high=6,
+                    low=5,
+                    close=6,
+                    **common,
+                ),
+            ]
+        )
+        await s.commit()
+    bars = (await c.get("/market/bars", params={"timeframe": "1m"})).json()
+    assert [(D(b["open"]), D(b["close"])) for b in bars] == [(D(3), D(4)), (D(5), D(6))]
+
+
+async def test_partial_bar_keeps_history_open_when_feed_starts_mid_period(app_state: Any) -> None:
+    c, st = app_state
+    st.market.source = "ctrader"
+    now = datetime.now(UTC)
+    from apex.market.sessions import bucket_start
+
+    day = bucket_start(now, "1d")
+    async with st.sessionmaker() as s:
+        s.add(
+            BarRow(
+                source="dukascopy",
+                symbol="XAUUSD",
+                timeframe="1d",
+                start=day,
+                open=D(3990),
+                high=D(4050),
+                low=D(3980),
+                close=D(4000),
+                spread_avg=D("0.2"),
+                spread_max=D("0.5"),
+                tick_count=100,
+            )
+        )
+        await s.commit()
+    await st.market.on_quote(Quote(symbol="XAUUSD", bid=D("4010.0"), ask=D("4010.2"), ts=now))
+    [bar] = (await c.get("/market/bars", params={"timeframe": "1d", "limit": 1})).json()
+    assert D(bar["open"]) == 3990 and D(bar["high"]) == 4050 and D(bar["low"]) == 3980
+    assert D(bar["close"]) == D("4010.1") and bar["complete"] is False
+
+
+async def test_warm_up_rebuilds_current_day_from_stored_ticks(app_state: Any) -> None:
+    _, st = app_state
+    from apex.market.feed import MarketFeed
+    from apex.market.sessions import trading_day_start
+
+    now = datetime(2026, 11, 26, 18, 0, tzinfo=UTC)  # Thursday 13:00 NY
+    day = trading_day_start(now)
+    async with st.sessionmaker() as s:
+        s.add_all(
+            [
+                Tick(
+                    source="dukascopy", symbol="XAUUSD", ts=day - timedelta(minutes=5), bid=D(1), ask=D("1.2")
+                ),  # previous day
+                Tick(
+                    source="dukascopy",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(minutes=1),
+                    bid=D("3990.0"),
+                    ask=D("3990.2"),
+                ),
+                Tick(
+                    source="dukascopy",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(hours=5),
+                    bid=D("4050.0"),
+                    ask=D("4050.2"),
+                ),
+                Tick(
+                    source="dukascopy",
+                    symbol="XAUUSD",
+                    ts=now - timedelta(minutes=1),
+                    bid=D("4010.0"),
+                    ask=D("4010.2"),
+                ),
+            ]
+        )
+        await s.commit()
+    feed = MarketFeed()
+    assert await feed.warm_up(st.sessionmaker, now=now) == 3
+    d = feed.bars.partial("1d")
+    assert d is not None and d.start == day and d.open == D("3990.1") and d.high == D("4050.1")
+    assert d.close == D("4010.1") and not d.complete
+
+
+async def test_warm_up_uses_history_before_live_ticks(app_state: Any) -> None:
+    _, st = app_state
+    from apex.market.feed import MarketFeed
+    from apex.market.sessions import trading_day_start
+
+    now = datetime(2026, 11, 26, 18, 0, tzinfo=UTC)
+    day = trading_day_start(now)
+    async with st.sessionmaker() as s:
+        s.add_all(
+            [
+                Tick(
+                    source="dukascopy",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(minutes=1),
+                    bid=D("3990.0"),
+                    ask=D("3990.2"),
+                ),
+                Tick(
+                    source="dukascopy",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(hours=6),
+                    bid=D("4999.0"),
+                    ask=D("4999.2"),
+                ),
+                Tick(
+                    source="ctrader",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(hours=5),
+                    bid=D("4020.0"),
+                    ask=D("4020.2"),
+                ),
+                Tick(
+                    source="ctrader",
+                    symbol="XAUUSD",
+                    ts=day + timedelta(hours=7),
+                    bid=D("4030.0"),
+                    ask=D("4030.2"),
+                ),
+            ]
+        )
+        await s.commit()
+    feed = MarketFeed()
+    feed.source = "ctrader"
+    assert await feed.warm_up(st.sessionmaker, now=now) == 3  # history tick after live start is not used
+    d = feed.bars.partial("1d")
+    assert d is not None and d.open == D("3990.1") and d.high == D("4030.1") and d.close == D("4030.1")

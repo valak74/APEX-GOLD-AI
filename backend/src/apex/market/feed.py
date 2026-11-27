@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -60,6 +60,50 @@ class MarketFeed:
         if isinstance(self.paper, SimBroker):
             await self.paper.on_quote(q)
 
+    async def warm_up(self, maker: async_sessionmaker[AsyncSession], now: datetime | None = None) -> int:
+        """Rebuild the in-progress bars (current trading day and below) from stored ticks.
+
+        Without this, a restart mid-session would make the day's bar "open" at the first live quote.
+        Uses history (e.g. Dukascopy) up to the live source's first tick, then the live source.
+        The current week bar (1w) is only warmed from the current day — documented limitation.
+        """
+        from sqlalchemy import func, select
+
+        from apex.db.models import Tick
+        from apex.market.dukascopy import stream_ticks
+        from apex.market.sessions import trading_day_start
+
+        now = now or utcnow()
+        start = trading_day_start(now)
+        async with maker() as session:
+            rows = (
+                await session.execute(
+                    select(Tick.source, func.count(), func.min(Tick.ts))
+                    .where(Tick.symbol == "XAUUSD", Tick.ts >= start, Tick.ts <= now)
+                    .group_by(Tick.source)
+                )
+            ).all()
+        if not rows:
+            return 0
+        info = {src: (cnt, first) for src, cnt, first in rows}
+        # Plan: history (best other source) until the live source's first tick, then the live source.
+        plan: list[tuple[str, datetime, datetime]] = []
+        live_first = info[self.source][1] if self.source in info else now
+        others = {k: v for k, v in info.items() if k != self.source and v[1] < live_first}
+        if others:
+            best = max(others, key=lambda k: others[k][0])
+            plan.append((best, start, live_first))
+        if self.source in info:
+            plan.append((self.source, live_first, now))
+        n = 0
+        for src, a, b in plan:
+            async for q in stream_ticks(maker, src, "XAUUSD", a, b + timedelta(microseconds=1)):
+                for bar in self.bars.update(q):
+                    self.recent.setdefault(bar.timeframe, deque(maxlen=1000)).append(bar)
+                n += 1
+        log.info("bars_warmed_up", plan=[p[0] for p in plan], ticks=n, since=start.isoformat())
+        return n
+
     async def start(self, settings: Settings, maker: async_sessionmaker[AsyncSession], paper: Any) -> None:
         self.source = settings.market_data_source
         self.paper = paper
@@ -90,6 +134,10 @@ class MarketFeed:
             on_tokens_refreshed=token_saver(maker, mk, acc_id),
         )
 
+        try:
+            await self.warm_up(maker)
+        except Exception as e:  # warm-up is best effort; never block the feed
+            log.warning("bars_warm_up_failed", error=type(e).__name__)
         self.recorder = MarketRecorder(maker, source=self.source)
         self.recorder.start()
         self.adapter.add_quote_listener(self.on_quote)

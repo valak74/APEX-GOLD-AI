@@ -83,3 +83,11 @@ et le calculateur utilise le vrai taux EUR/USD et la vraie commission.
 | `no tradable XAU/USD symbol` | L'or n'est pas négociable via l'API sur ce compte → prévenez-moi |
 | `... not supported yet` | Spécification inhabituelle : la plateforme refuse par sécurité → envoyez-moi le message |
 | Aucun prix reçu | Marché fermé (week-end / pause quotidienne ~23h–00h heure de Paris) |
+
+## Importer l'historique (optionnel, recommandé)
+
+```bash
+docker compose exec api apex import-dukascopy --from 2025-01-01 --to 2026-11-01
+```
+Télécharge les ticks Dukascopy heure par heure (reprend là où il s'est arrêté), refuse tout fichier incohérent,
+puis calcule les bougies. Plusieurs mois prennent du temps : commencez par un mois pour vérifier.

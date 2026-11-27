@@ -187,7 +187,7 @@ async def import_ticks(
     return rep
 
 
-async def _stream_ticks(
+async def stream_ticks(
     maker: async_sessionmaker[AsyncSession], source: str, symbol: str, start: datetime, end: datetime
 ) -> AsyncIterator[Quote]:
     cursor = start
@@ -264,7 +264,7 @@ async def rebuild_bars(
         written += len(pending)
         pending.clear()
 
-    async for q in _stream_ticks(maker, source, symbol, start, end):
+    async for q in stream_ticks(maker, source, symbol, start, end):
         pending.extend(builder.update(q))
         if len(pending) >= 5000:
             await flush()

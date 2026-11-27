@@ -1,6 +1,8 @@
-# Phase 3 — Progress report (part A: cTrader connectivity)
+# Phase 3 — Market data: report
 
-Status: **part A complete and tested against a protocol simulator; awaiting first run on the real demo server.**
+Status: **complete (A + B), tested against a protocol simulator and on TimescaleDB 2.17; awaiting the owner's first run on the real IC Markets demo server and a real Dukascopy download (both hosts are blocked from the build environment).**
+
+## Part A — cTrader connectivity
 
 ## Delivered
 
@@ -38,7 +40,31 @@ Status: **part A complete and tested against a protocol simulator; awaiting firs
 - Real token-exchange response shape (both camelCase and snake_case accepted).
 - Behaviour across the daily break and weekend.
 
-## Next (part B)
+## Part B — storage, bars, quality, history, dashboard
 
-Tick persistence in TimescaleDB (hypertable + compression), bar builder 1s→1W, data-quality score
-(staleness, gaps, spread outliers, cross-checks), Dukascopy historical importer, candlestick chart.
+| Component | Notes | Where |
+|---|---|---|
+| Trading calendar | NY 17:00 rollover, Sunday 18:00 open, Friday 17:00 close, daily break; DST-safe (tested both seasons) | `market/sessions.py` |
+| Bar builder | 1s→1w at once, mid OHLC, spread avg/max, tick count (**never** shown as volume), closes only when the next period starts (no look-ahead), out-of-order quotes rejected | `market/bars.py` |
+| Data-quality score | staleness, robust spread z-score, price jumps, duplicates, out-of-order, future timestamps, market closed, warm-up → score 0–1 + `tradeable` + reasons | `market/quality.py` |
+| Storage | `market.ticks` / `market.bars`; TimescaleDB hypertables + tick compression (7 d) when available, plain tables otherwise | migration `…_market_ticks_and_bars.py` |
+| Recorder | batched, idempotent, off the quote path; buffers through DB outages | `market/recorder.py` |
+| Warm-up | on restart, rebuilds the current day's bars from stored ticks (history until the first live tick, then live) — otherwise the day would "open" at the restart price | `market/feed.py` |
+| Bars API | DB + memory + current bar; live source wins over history; a live partial bar keeps the true open/extremes from history | `GET /market/bars`, `GET /market/quality` |
+| Dukascopy importer | `.bi5` decoding; **whole-file validation** (plausible price band — catches a wrong point divisor —, spread, time order); resumable; deterministic bar rebuild | `market/dukascopy.py`, `apex import-dukascopy` |
+| Dashboard redesign | sticky header with live price, day change, data/broker/trading status, kill switch modal; TradingView Lightweight Charts candles (1m…1d, French locale, OHLC readout); account, data-quality gauge, position sizing, risk limits, positions; responsive; Geist fonts | `frontend/` |
+
+Chart colours: teal up / orange down, validated for colour-blind separation on the dark background (the usual green/red pair fails); up candles hollow, down filled — never colour alone. Changes carry ▲/▼ and a sign.
+
+### Bugs found in part B
+1. A restart mid-session made the day bar open at the restart price → warm-up from stored ticks.
+2. History and live bars for the same period were mixed arbitrarily → live wins; live partial keeps the historical open.
+3. Mobile: chart axis overflowed onto the next card; risk grid too narrow → fixed.
+
+### Known limitations
+- The current **week** bar is warmed only from the current day.
+- Dukascopy point divisor for XAUUSD (1/1000) is from the documented format; a wrong value is caught by validation, but the first real import must be checked.
+- Broker holiday schedules are not yet in the calendar.
+
+## Verification (A + B)
+125 backend tests (strict mypy, ruff), 0 npm vulnerabilities; migrations up/down/up and the full suite verified on TimescaleDB 2.17; desktop + mobile visual checks with a simulated live feed (no horizontal overflow, no console errors).

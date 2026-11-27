@@ -110,3 +110,32 @@ export function fmtMoney(m: Money | null | undefined, digits = 2): string {
   const n = Number(m.amount);
   return `${n.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${m.ccy}`;
 }
+
+export type BarOut = {
+  start: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  spread_avg: string;
+  spread_max: string;
+  tick_count: number;
+  complete: boolean;
+};
+
+export type Quality = {
+  symbol: string;
+  score: number;
+  tradeable: boolean;
+  market_open: boolean;
+  last_quote_age_s: number | null;
+  spread: string | null;
+  spread_median: string | null;
+  issues: string[];
+  counters: Record<string, number>;
+};
+
+export function fmtNum(v: string | number | null | undefined, digits = 2): string {
+  if (v === null || v === undefined || v === "") return "—";
+  return Number(v).toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}

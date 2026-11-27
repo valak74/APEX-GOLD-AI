@@ -2,7 +2,7 @@
 
 Research-driven, risk-first automated trading platform for XAU/USD.
 
-> **Status: Phase 3 part A — live XAU/USD prices from a cTrader DEMO account (read-only); orders are simulated (PAPER).**
+> **Status: Phase 3 complete — live XAU/USD from a cTrader DEMO account (read-only), tick/bar storage, data-quality score, Dukascopy history, new dashboard. Orders are simulated (PAPER).**
 > The system does not and cannot guarantee profits. Any edge must be demonstrated out-of-sample,
 > then in paper trading, before live use. LIVE mode is refused by the code in this build.
 
@@ -33,7 +33,7 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | `backend/src/apex/core` | config, logging (secret redaction), `Money`, FX conversion |
 | `backend/src/apex/risk` | position sizing, risk configuration |
 | `backend/src/apex/broker` | `BrokerAdapter` interface, paper/simulation broker, mode-guarded factory, `ctrader/` read-only adapter |
-| `backend/src/apex/market` | market data feed supervisor |
+| `backend/src/apex/market` | feed supervisor, sessions, bars, data quality, recorder, Dukascopy importer |
 | `backend/src/apex/security` | passwords, JWT/TOTP, envelope encryption |
 | `backend/src/apex/api` | FastAPI app and routes |
 | `backend/migrations` | Alembic migrations |
@@ -53,5 +53,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Broker selection](docs/07-broker-selection.md) | Direct-API broker comparison & recommendation |
 | [Phase 2 report](docs/08-phase2-report.md) | What was built, how it was verified, known limitations |
 | [Guide cTrader (FR)](docs/09-guide-connexion-ctrader.md) | Connecter votre compte démo IC Markets, pas à pas |
-| [Phase 3 progress](docs/10-phase3-progress.md) | cTrader connectivity: delivered, verified, pending |
+| [Phase 3 report](docs/10-phase3-progress.md) | Market data: delivered, verified, pending |
 | [ADRs](docs/adr/) | Key architectural decisions |
