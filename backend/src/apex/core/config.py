@@ -50,6 +50,7 @@ class Settings(BaseSettings):
 
     # Opportunity scanner and optional LLM explanations (off by default: each explanation is a paid API call)
     scanner_enabled: bool = True
+    risk_guard_enabled: bool = True
     scanner_interval_s: int = 30
     llm_enabled: bool = False
     llm_model: str = "claude-opus-5-5"

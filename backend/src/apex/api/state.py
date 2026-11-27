@@ -66,3 +66,4 @@ class AppState:
     trading: TradingState = field(default_factory=TradingState)
     market: MarketFeed = field(default_factory=MarketFeed)
     scanner: Any = None  # OpportunityScanner (set at startup)
+    risk: Any = None  # RiskService (set at startup)

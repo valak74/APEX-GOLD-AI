@@ -105,6 +105,7 @@ class SimBroker(BrokerAdapter):
         self._positions: dict[UUID, _Pos] = {}
         self._orders: dict[str, OrderResult] = {}
         self.closed_trades: list[ClosedTrade] = []
+        self.trade_listeners: list[Callable[[ClosedTrade], None]] = []  # e.g. persist to the trade journal
         self.fx = FxConverter(
             max_age=timedelta(days=3650) if mode is TradingMode.SIMULATION else timedelta(minutes=2)
         )
@@ -369,6 +370,11 @@ class SimBroker(BrokerAdapter):
             net_pnl=gross - comm_open - comm_close,
         )
         self.closed_trades.append(trade)
+        for listener in self.trade_listeners:
+            try:
+                listener(trade)
+            except Exception as e:  # a journal failure must never break position handling
+                log.error("trade_listener_failed", error=type(e).__name__)
         log.info("position_closed", mode=self.mode.value, reason=reason.value, net_pnl=str(trade.net_pnl))
         return trade
 

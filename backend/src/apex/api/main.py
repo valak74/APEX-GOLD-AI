@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 import apex
-from apex.api.routes import analysis, auth, brokers, system
+from apex.api.routes import analysis, auth, brokers, risk, system
 from apex.api.state import AppState, RateLimiter
 from apex.broker.factory import build_broker
 from apex.core.config import Settings, get_settings
@@ -45,6 +45,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.apex.scanner = OpportunityScanner(app.state.apex, explainer)
         if settings.scanner_enabled:
             app.state.apex.scanner.start()
+        from apex.api.risk_service import RiskService
+
+        app.state.apex.risk = RiskService(app.state.apex)
+        if settings.risk_guard_enabled:
+            app.state.apex.risk.start()
         log.info(
             "startup",
             mode=broker.mode.value,
@@ -55,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await app.state.apex.risk.stop()
             await app.state.apex.scanner.stop()
             await app.state.apex.market.stop()
             await broker.disconnect()
@@ -88,4 +94,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(brokers.router)
     app.include_router(analysis.router)
+    app.include_router(risk.router)
     return app

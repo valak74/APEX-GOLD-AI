@@ -363,3 +363,23 @@ async def collect_bars(
 async def market_quality(_: Viewer, state: StateDep, symbol: str = "XAUUSD") -> dict[str, Any]:
     r = state.market.quality.report(symbol)
     return {**r.__dict__, "spread": r.spread, "spread_median": r.spread_median}
+
+
+# --------------------------------------------------------------------------- trading switch
+@router.post("/system/trading/enable", status_code=204)
+async def enable_trading(body: ReAuth, user: Admin, state: StateDep, session: SessionDep) -> None:
+    """Explicit human activation (admin + password + TOTP). Refused while the kill switch is engaged."""
+    verify_reauth(user, body, state)
+    if state.trading.kill_switch_engaged:
+        raise HTTPException(status.HTTP_409_CONFLICT, "re-arm the kill switch first")
+    state.trading.trading_enabled = True
+    await append_audit(session, user.email, "trading_enabled", details={"mode": state.broker.mode.value})
+    await session.commit()
+
+
+@router.post("/system/trading/disable", status_code=204)
+async def disable_trading(user: Trader, state: StateDep, session: SessionDep) -> None:
+    """Stopping is always easy: any trader, no re-authentication."""
+    state.trading.trading_enabled = False
+    await append_audit(session, user.email, "trading_disabled")
+    await session.commit()

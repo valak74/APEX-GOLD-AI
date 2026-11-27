@@ -31,6 +31,16 @@ class RiskConfig(BaseModel):
     max_volume_lots: Decimal = Field(default=Decimal("1.0"), gt=0)
     news_lockout_minutes_before: int = Field(default=15, ge=0, le=240)
     news_lockout_minutes_after: int = Field(default=15, ge=0, le=240)
+    # Trade-quality floors (checked after costs)
+    min_risk_reward: Decimal = Field(default=Decimal("1.5"), ge=Decimal("1.0"), le=Decimal("10"))
+    min_stop_atr: Decimal = Field(default=Decimal("0.3"), gt=0)  # tighter stops are noise-stopped
+    max_stop_atr: Decimal = Field(default=Decimal("6"), gt=0)
+    max_quote_age_s: int = Field(default=5, ge=1, le=60)
+    # No new entries this many minutes before the Friday close / daily rollover
+    weekly_close_buffer_minutes: int = Field(default=60, ge=0, le=600)
+    rollover_buffer_minutes: int = Field(default=15, ge=0, le=120)
+    # When drawdown exceeds this share of the max drawdown, risk per trade is halved
+    drawdown_reduce_at: Decimal = Field(default=Decimal("0.5"), gt=0, le=1)
 
     @model_validator(mode="after")
     def _ordering(self) -> RiskConfig:
@@ -41,6 +51,8 @@ class RiskConfig(BaseModel):
             <= self.max_total_drawdown_pct
         ):
             raise ValueError("limits must satisfy per-trade <= daily <= weekly <= total drawdown")
+        if self.min_stop_atr >= self.max_stop_atr:
+            raise ValueError("min_stop_atr must be below max_stop_atr")
         return self
 
     def config_hash(self) -> str:
