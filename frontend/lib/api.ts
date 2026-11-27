@@ -445,3 +445,36 @@ export type CostProfile = {
   hours: { hour: number; live: number | null; hist: number | null }[];
   live_bars: number; hist_bars: number; ratio: number | null; min_live_bars: number; note: string;
 };
+
+// --------------------------------------------------------------------------- paper autopilot
+export type AutopilotConfig = { setups: Setup[]; timeframes: ("5m" | "15m")[]; min_quality: number; max_hold_bars: number; freshness_bars: number };
+export type AlertsStatus = { configured: boolean; sent?: number; failed?: number; last_error?: string | null; recent: { at: string; text: string }[] };
+export type PaperStatus = {
+  mode: string; available: boolean; enabled: boolean; trading_enabled: boolean; kill_switch: boolean;
+  config: AutopilotConfig; last_cycle: string | null; last_error: string | null; alerts: AlertsStatus;
+};
+export type PaperStats = {
+  trades: number; net_profit?: number; currency?: string; win_rate?: number; win_rate_ci?: [number, number];
+  expectancy_r?: number; expectancy_r_ci?: [number | null, number | null]; profit_factor?: number | null;
+  avg_slippage?: number | null; avg_latency_s?: number | null; by_reason?: Record<string, number>;
+};
+export type GateRow = { name: string; passed: boolean; value: string; requirement: string; progress: number | null };
+export type PaperReport = {
+  overall: PaperStats; days: number; first_at: string | null; gate: GateRow[]; gate_passed: boolean;
+  groups: {
+    setup: Setup; timeframe: string; considered: number; status_counts: Record<string, number>; stats: PaperStats;
+    backtest: { backtest_id: number; expectancy_r: number | null; expectancy_r_ci: [number | null, number | null]; win_rate: number | null; validated: boolean | null; paper_inside_ci: boolean | null } | null;
+  }[];
+};
+export type PaperOrder = {
+  id: number; opportunity_id: string; considered_at: string; setup: Setup; timeframe: string; direction: "bullish" | "bearish";
+  quality: number; signal_at: string; status: "skipped" | "rejected" | "failed" | "open" | "closed"; reasons: string[];
+  intended_entry: string; stop: string; target: string; volume: string | null; fill_price: string | null; slippage: string | null;
+  latency_s: number | null; risk_amount: string | null; currency: string | null; opened_at: string | null; closed_at: string | null;
+  close_price: string | null; close_reason: string | null; net_pnl: string | null; r_multiple: number | null;
+};
+export type Divergence = {
+  error?: string; setup?: string; timeframe?: string; since?: string; bars?: number; backtest_signals?: number; live_opportunities?: number;
+  matched?: { t: string; direction: string; paper_status: string; paper_r: number | null; slippage: number | null; backtest_stop: number; live_stop: number }[];
+  backtest_only?: { t: string; direction: string }[]; live_only?: { t: string; direction: string }[]; agreement?: number | null; note?: string;
+};

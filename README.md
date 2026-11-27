@@ -62,4 +62,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Phases 5 + 7](docs/14-backtesting.md) | Strategies, backtester, validation gate |
 | [Research](docs/15-research-diagnostics.md) | Edge diagnostics, reserved holdout, deflated Sharpe |
 | [Fundamental data](docs/16-fundamental-data.md) | FRED, CFTC COT, official calendar, cost calibration |
+| [PAPER trading](docs/17-paper-trading.md) | Autopilot, journal, live vs backtest, alerts, phase 9 gate |
 | [ADRs](docs/adr/) | Key architectural decisions |
