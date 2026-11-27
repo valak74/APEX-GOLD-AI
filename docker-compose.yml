@@ -1,0 +1,71 @@
+# APEX GOLD AI — local stack. Secrets come from .env (copy .env.example, then `apex gen-keys`).
+name: apex-gold-ai
+
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: apex
+      POSTGRES_PASSWORD: ${APEX_DB_PASSWORD:?set APEX_DB_PASSWORD in .env}
+      POSTGRES_DB: apex
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apex -d apex"]
+      interval: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+    networks: [internal]
+
+  migrate:
+    image: apex-gold-ai-api
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend-env
+      APEX_ENVIRONMENT: ${APEX_ENVIRONMENT:-dev}
+      APEX_DATABASE_URL: postgresql+asyncpg://apex:${APEX_DB_PASSWORD}@db:5432/apex
+      APEX_REDIS_URL: redis://redis:6379/0
+      APEX_JWT_SECRET: ${APEX_JWT_SECRET:?see .env.example}
+      APEX_MASTER_KEY: ${APEX_MASTER_KEY:?see .env.example}
+      APEX_TRADING_MODE: paper
+      APEX_PAPER_ACCOUNT_CURRENCY: ${APEX_PAPER_ACCOUNT_CURRENCY:-EUR}
+      APEX_PAPER_INITIAL_BALANCE: ${APEX_PAPER_INITIAL_BALANCE:-10000}
+      APEX_COOKIE_SECURE: ${APEX_COOKIE_SECURE:-false}
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+
+  api:
+    image: apex-gold-ai-api
+    build: ./backend
+    environment: *backend-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+
+  web:
+    image: apex-gold-ai-web
+    build: ./frontend
+    environment:
+      API_URL: http://api:8000
+    ports: ["127.0.0.1:3000:3000"]  # only the dashboard is exposed, and only on localhost
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [internal]
+
+volumes:
+  dbdata:
+  redisdata:
+
+networks:
+  internal:

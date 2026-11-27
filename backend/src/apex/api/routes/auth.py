@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pyotp
 from fastapi import APIRouter, HTTPException, Request, Response, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from apex.api.deps import COOKIE_NAME, SessionDep, StateDep, UserDep
@@ -19,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    # Identifier only: no deliverability rules (self-hosted installs may use e.g. *.local addresses).
+    email: str = Field(min_length=3, max_length=320)
     password: str
     totp: str | None = None
 

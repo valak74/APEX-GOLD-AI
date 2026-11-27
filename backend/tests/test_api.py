@@ -57,6 +57,7 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
                     ("viewer@x.io", Role.VIEWER),
                     ("trader@x.io", Role.TRADER),
                     ("admin@x.io", Role.ADMIN),
+                    ("ops@apex.local", Role.VIEWER),
                 ]:
                     s.add(User(email=email, password_hash=hash_password(PW), role=role))
                 await s.commit()
@@ -239,3 +240,8 @@ async def test_position_size_calculator_eur(client: httpx.AsyncClient) -> None:
     assert r["risk_amount"]["ccy"] == "EUR" and D(r["risk_amount"]["amount"]) <= 25
     r2 = (await client.post("/risk/position-size", json={**body, "stop_loss": "4001"})).json()
     assert not r2["approved"] and r2["rejections"] == ["invalid_stop_side"]
+
+
+async def test_login_accepts_local_domain_and_is_case_insensitive(client: httpx.AsyncClient) -> None:
+    r = await client.post("/auth/login", json={"email": "OPS@apex.local", "password": PW})
+    assert r.status_code == 200 and r.json()["email"] == "ops@apex.local"
