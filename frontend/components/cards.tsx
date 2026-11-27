@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtMoney, fmtNum, type Account, type Position, type Quality, type RiskConfigOut } from "@/lib/api";
+import { fmtMoney, fmtNum, type Account, type Position, type Quality } from "@/lib/api";
 import { Badge, Card, Delta } from "./ui";
 
 export function AccountCard({ account }: { account: Account }) {
@@ -91,37 +91,6 @@ export function QualityCard({ q }: { q: Quality | null }) {
           <div><dt className="text-faint">Cotations</dt><dd className="mt-0.5 text-text">{(q.counters.quotes ?? 0).toLocaleString("fr-FR")}</dd></div>
         </dl>
       )}
-    </Card>
-  );
-}
-
-const RISK_ROWS: [string, string, (v: string | number) => string][] = [
-  ["risk_per_trade_pct", "Risque / trade", (v) => `${(Number(v) * 100).toFixed(2)} %`],
-  ["max_daily_loss_pct", "Perte max / jour", (v) => `${(Number(v) * 100).toFixed(1)} %`],
-  ["max_weekly_loss_pct", "Perte max / semaine", (v) => `${(Number(v) * 100).toFixed(1)} %`],
-  ["max_total_drawdown_pct", "Drawdown max", (v) => `${(Number(v) * 100).toFixed(1)} %`],
-  ["max_open_positions", "Positions max", String],
-  ["max_trades_per_day", "Trades / jour", String],
-  ["max_spread", "Spread max", (v) => `${v} $`],
-  ["news_lockout_minutes_before", "Blocage news", (v) => `±${v} min`],
-];
-
-export function RiskCard({ risk, equity, ccy }: { risk: RiskConfigOut; equity: number; ccy: string }) {
-  const perTrade = equity * Number(risk.config.risk_per_trade_pct);
-  return (
-    <Card title="Limites de risque" right={<span className="num text-[11px] text-faint">{risk.version ? `v${risk.version}` : "défaut"} · {risk.config_hash.slice(0, 7)}</span>}>
-      <p className="text-sm text-muted">
-        Risque maximal par trade : <span className="num font-medium text-text">{fmtNum(perTrade)} {ccy}</span>
-      </p>
-      <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        {RISK_ROWS.filter(([k]) => k in risk.config).map(([k, label, f]) => (
-          <div key={k} className="flex justify-between gap-2 border-b border-line-soft pb-1.5">
-            <dt className="text-muted">{label}</dt>
-            <dd className="num">{f(risk.config[k])}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-3 text-[11px] text-faint">🔒 Modifiable uniquement par un admin (mot de passe + 2FA). Jamais par l&apos;IA.</p>
     </Card>
   );
 }

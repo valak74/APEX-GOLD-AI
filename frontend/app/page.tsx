@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { AnalysisCard } from "@/components/AnalysisCard";
 import { CalendarCard } from "@/components/CalendarCard";
-import { AccountCard, PositionsCard, QualityCard, RiskCard } from "@/components/cards";
+import { AccountCard, PositionsCard, QualityCard } from "@/components/cards";
+import { RiskPanel } from "@/components/RiskPanel";
 import { Header } from "@/components/Header";
 import { OpportunitiesList, OpportunityDetail } from "@/components/Opportunities";
 import { PriceChart } from "@/components/PriceChart";
@@ -23,6 +24,7 @@ import {
   type Position,
   type Quality,
   type RiskConfigOut,
+  type RiskStatus,
   type SystemStatus,
 } from "@/lib/api";
 import { usePoll } from "@/lib/usePoll";
@@ -43,6 +45,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [riskStatus, setRiskStatus] = useState<RiskStatus | null>(null);
 
   const loadSlow = useCallback(async () => {
     try {
@@ -66,6 +69,7 @@ export default function Dashboard() {
   usePoll(async () => {
     setQuote(await api<LiveQuote>("/market/quote").catch(() => null));
     setQuality(await api<Quality>("/market/quality").catch(() => null));
+    setRiskStatus(await api<RiskStatus>("/risk/status").catch(() => null));
   }, 1000);
 
   usePoll(async () => {
@@ -113,6 +117,7 @@ export default function Dashboard() {
             <OpportunityDetail
               o={selected}
               canExplain={(me.role === "trader" || me.role === "admin") && status.llm_enabled}
+              canEvaluate={me.role === "trader" || me.role === "admin"}
               onClose={() => setSelectedId(null)}
               onExplained={(n) => setOpps((xs) => xs.map((x) => (x.id === selected.id ? { ...x, narrative: n } : x)))}
             />
@@ -120,11 +125,11 @@ export default function Dashboard() {
           <PositionsCard positions={positions} ccy={account.currency} />
           <AnalysisCard ctx={ctx} />
           <CalendarCard lockout={lockout} events={events} />
-          {risk && <RiskCard risk={risk} equity={Number(account.equity.amount)} ccy={account.currency} />}
         </div>
         <aside className="space-y-4 xl:col-span-4">
           <OpportunitiesList items={opps} selected={selectedId} onSelect={(o) => setSelectedId(o?.id ?? null)} />
           <AccountCard account={account} />
+          <RiskPanel risk={riskStatus} cfg={risk} me={me} tradingEnabled={status.trading_enabled} killSwitch={status.kill_switch_engaged} onChange={loadSlow} />
           <QualityCard q={quality} />
           <SizeCalculator accountCcy={account.currency} price={mid} />
         </aside>

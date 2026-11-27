@@ -31,7 +31,7 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | Path | Content |
 |---|---|
 | `backend/src/apex/core` | config, logging (secret redaction), `Money`, FX conversion |
-| `backend/src/apex/risk` | position sizing, risk configuration |
+| `backend/src/apex/risk` | position sizing, risk configuration, risk engine, trade ledger |
 | `backend/src/apex/broker` | `BrokerAdapter` interface, paper/simulation broker, mode-guarded factory, `ctrader/` read-only adapter |
 | `backend/src/apex/analysis` | indicators, structure, liquidity, levels, regime, MTF, event statistics |
 | `backend/src/apex/intel` | economic calendar & lockouts |
@@ -58,4 +58,5 @@ cd ../frontend && npm ci && npm run dev   # API_URL defaults to http://localhost
 | [Phase 3 report](docs/10-phase3-progress.md) | Market data: delivered, verified, pending |
 | [Phase 4 report](docs/11-phase4-report.md) | Analysis engine, calendar lockouts |
 | [Opportunities & AI](docs/12-opportunities-and-ai.md) | Setup detection, explanations, LLM role, enabling it |
+| [Phase 6 report](docs/13-phase6-risk-engine.md) | Risk engine: checks, journal, guard, activation |
 | [ADRs](docs/adr/) | Key architectural decisions |

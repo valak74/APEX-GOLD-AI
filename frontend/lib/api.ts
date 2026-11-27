@@ -254,3 +254,41 @@ export const STATUS_FR: Record<Opportunity["status"], string> = {
   invalidated: "Invalidée",
   expired: "Expirée",
 };
+
+export type RiskStatus = {
+  currency: string;
+  entry_allowed: boolean;
+  blocks: string[];
+  realized_today: string;
+  realized_week: string;
+  daily_loss: string;
+  daily_cap: string;
+  remaining_daily: string;
+  weekly_loss: string;
+  weekly_cap: string;
+  drawdown: string;
+  max_drawdown: string;
+  trades_today: number;
+  max_trades: number;
+  consecutive_losses: number;
+  max_consecutive_losses: number;
+  open_positions: number;
+  max_open_positions: number;
+  regime_multiplier: string;
+};
+
+export type RiskCheck = { code: string; label: string; passed: boolean; value: string; limit: string; severity: string };
+
+export type RiskDecision = {
+  proposal_id: string;
+  approved: boolean;
+  decided_at: string;
+  checks: RiskCheck[];
+  rejections: string[];
+  critical: boolean;
+  risk_pct_effective: string;
+  reductions: string[];
+  net_risk_reward: string | null;
+  sizing: { volume: string; risk_amount: Money | null; margin_required: Money | null } | null;
+  order: { volume: string; stop_loss: string; take_profit: string; client_order_id: string } | null;
+};

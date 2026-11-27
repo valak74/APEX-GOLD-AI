@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, fmtNum, fmtTime, STATUS_FR, type Narrative, type Opportunity } from "@/lib/api";
+import { api, fmtMoney, fmtNum, fmtTime, STATUS_FR, type Narrative, type Opportunity, type RiskDecision } from "@/lib/api";
 import { Badge, Card } from "./ui";
 
 function Dir({ d }: { d: Opportunity["direction"] }) {
@@ -60,15 +60,31 @@ export function OpportunitiesList({ items, selected, onSelect }: {
   );
 }
 
-export function OpportunityDetail({ o, canExplain, onClose, onExplained }: {
+export function OpportunityDetail({ o, canExplain, canEvaluate, onClose, onExplained }: {
   o: Opportunity;
   canExplain: boolean;
+  canEvaluate: boolean;
   onClose: () => void;
   onExplained: (n: Narrative) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [decision, setDecision] = useState<RiskDecision | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const risk = Math.abs(o.entry - o.stop);
+
+  async function evaluateRisk() {
+    setChecking(true);
+    setErr(null);
+    try {
+      setDecision(await api<RiskDecision>(`/risk/evaluate/${o.id}`, { method: "POST" }));
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  }
   const s = o.stats;
 
   async function explain() {
@@ -183,7 +199,51 @@ export function OpportunityDetail({ o, canExplain, onClose, onExplained }: {
           </div>
         </div>
       </div>
-      <p className="mt-4 text-[11px] text-faint">Une opportunité n&apos;est pas un ordre : le moteur de risque décidera si elle peut être tradée.</p>
+      <div className="mt-5 rounded-xl border border-line bg-panel-2 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="label">Vérification par le moteur de risque</h3>
+          {canEvaluate && o.status === "active" && (
+            <button onClick={evaluateRisk} disabled={checking} className="rounded-lg border border-gold/40 bg-gold-soft px-3 py-1.5 text-xs font-semibold text-gold disabled:opacity-50">
+              {checking ? "Vérification…" : decision ? "Revérifier maintenant" : "Vérifier maintenant"}
+            </button>
+          )}
+        </div>
+        {!decision && (
+          <p className="mt-2 text-sm text-faint">
+            {o.status !== "active" ? "Cette opportunité n'est plus active." : "Le moteur vérifie 23 contrôles (limites, coûts, marché, données) et calcule la taille. Aucun ordre n'est passé."}
+          </p>
+        )}
+        {decision && (
+          <div className="mt-3">
+            {decision.approved ? (
+              <div className="rounded-lg border border-up/30 bg-up/10 px-3 py-2 text-sm">
+                <b className="text-up">✓ Autorisée</b> · <span className="num">{decision.order?.volume} lot</span> · risque{" "}
+                <span className="num">{fmtMoney(decision.sizing?.risk_amount)}</span> ({(Number(decision.risk_pct_effective) * 100).toFixed(3)} %) · R:R net{" "}
+                <span className="num">{decision.net_risk_reward}</span>
+              </div>
+            ) : (
+              <div className={`rounded-lg border px-3 py-2 text-sm ${decision.critical ? "border-danger/50 bg-danger/15" : "border-danger/30 bg-danger/10"} text-danger`}>
+                <b>✕ Refusée</b> — {decision.checks.filter((c) => !c.passed).map((c) => c.label + (c.value ? ` (${c.value}${c.limit ? ` / ${c.limit}` : ""})` : "")).join(" · ")}
+              </div>
+            )}
+            {decision.reductions.length > 0 && <p className="mt-2 text-xs text-warn">Risque réduit : {decision.reductions.join(" · ")}</p>}
+            <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs text-muted hover:text-text">
+              {showAll ? "Masquer" : "Voir"} les {decision.checks.length} contrôles
+            </button>
+            {showAll && (
+              <ul className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+                {decision.checks.map((c) => (
+                  <li key={c.code} className="flex justify-between gap-2 border-b border-line-soft py-1">
+                    <span className={c.passed ? "text-muted" : "text-danger"}>{c.passed ? "✓" : "✕"} {c.label}</span>
+                    <span className="num shrink-0 text-faint">{c.value}{c.limit ? ` / ${c.limit}` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="mt-4 text-[11px] text-faint">Une opportunité n&apos;est pas un ordre : seul le moteur de risque peut l&apos;autoriser, et l&apos;exécution automatique viendra avec la phase de paper trading.</p>
     </Card>
   );
 }
